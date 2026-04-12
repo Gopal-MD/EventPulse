@@ -1,0 +1,404 @@
+/* ============================================================
+   SmartVenue — Premium PWA Design System
+   Vertical: Physical Event Experience
+   Colors: Deep Navy (#0D1B2A) + Electric Blue (#1E90FF)
+   ============================================================ */
+
+:root {
+  /* Core Palette */
+  --navy: #0D1B2A;
+  --navy-light: #1B263B;
+  --navy-accent: #415A77;
+  --electric-blue: #1E90FF;
+  --electric-soft: rgba(30, 144, 255, 0.15);
+  
+  --white: #FFFFFF;
+  --gray-light: #E0E1DD;
+  --gray-muted: #778DA9;
+
+  /* Semantic Colors */
+  --danger: #FF4D4D;
+  --success: #00DB8B;
+  --warning: #FFB800;
+
+  /* Spacing & Borders */
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.2);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.4);
+}
+
+/* ----------------------------------------------------------
+   1. Base Reset & Typography
+   ---------------------------------------------------------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: var(--navy);
+  color: var(--white);
+  line-height: 1.6;
+  overscroll-behavior-y: contain; /* Prevents pull-to-refresh */
+  overflow-x: hidden;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1, h2, h3 { font-weight: 800; letter-spacing: -0.5px; }
+
+[hidden] { display: none !important; }
+
+/* ----------------------------------------------------------
+   2. Layout: Main App Containers
+   ---------------------------------------------------------- */
+.app-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+.tab-panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-md);
+  padding-bottom: 90px; /* Space for bottom nav */
+  animation: tabFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ----------------------------------------------------------
+   3. Bottom Navigation
+   ---------------------------------------------------------- */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 72px;
+  background: rgba(13, 27, 42, 0.95);
+  backdrop-filter: blur(15px);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-bottom: env(safe-area-inset-bottom);
+  z-index: 1000;
+}
+
+.nav-item {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--gray-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.nav-item--active { color: var(--electric-blue); }
+
+.nav-item .material-symbols-outlined {
+  font-size: 24px;
+  transition: transform 0.2s ease;
+}
+
+.nav-item--active .material-symbols-outlined {
+  transform: translateY(-2px);
+  font-variation-settings: 'FILL' 1;
+}
+
+.nav-label { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+
+/* ----------------------------------------------------------
+   4. Map View (Feature 1)
+   ---------------------------------------------------------- */
+.map-viewport {
+  width: 100%;
+  height: 100%;
+  background: var(--navy-light);
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+#map-canvas { width: 100%; height: 100%; }
+
+.map-overlay-btn {
+  position: absolute;
+  bottom: var(--sp-lg);
+  right: var(--sp-lg);
+  background: var(--electric-blue);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 30px;
+  font-weight: 800;
+  border: none;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-sm);
+  z-index: 10;
+}
+
+/* ----------------------------------------------------------
+   5. Queue Cards (Feature 2)
+   ---------------------------------------------------------- */
+.queue-grid { display: grid; gap: var(--sp-md); }
+
+.queue-card {
+  background: var(--navy-light);
+  border-radius: var(--radius-md);
+  padding: var(--sp-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.queue-info h4 { color: var(--white); font-size: 1rem; }
+.queue-info p { color: var(--gray-muted); font-size: 0.8rem; }
+
+.queue-stat { text-align: right; }
+.wait-minutes {
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--electric-blue);
+  line-height: 1;
+}
+.wait-label { font-size: 0.65rem; color: var(--gray-muted); text-transform: uppercase; }
+
+.ai-hint {
+  background: var(--electric-soft);
+  color: var(--electric-blue);
+  padding: var(--sp-md);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--sp-md);
+  display: flex;
+  gap: var(--sp-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px dashed var(--electric-blue);
+}
+
+/* ----------------------------------------------------------
+   6. Chat UI (Feature 3)
+   ---------------------------------------------------------- */
+.chat-fab {
+  position: fixed;
+  bottom: 85px;
+  right: var(--sp-md);
+  width: 56px;
+  height: 56px;
+  background: var(--electric-blue);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: var(--shadow-lg);
+  z-index: 900;
+}
+
+.chat-modal {
+  position: fixed;
+  inset: var(--sp-md);
+  top: 60px;
+  background: var(--navy);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  z-index: 1100;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+.chat-header {
+  padding: var(--sp-md);
+  background: var(--navy-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+}
+
+.bubble {
+  max-width: 80%;
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+}
+.bubble--ai { background: var(--navy-light); align-self: flex-start; border-bottom-left-radius: 2px; }
+.bubble--user { background: var(--electric-blue); align-self: flex-end; border-bottom-right-radius: 2px; }
+
+.chat-input {
+  padding: var(--sp-md);
+  background: var(--navy-light);
+  display: flex;
+  gap: var(--sp-sm);
+}
+.chat-input input {
+  flex: 1;
+  background: var(--navy);
+  border: 1px solid var(--navy-accent);
+  border-radius: 24px;
+  padding: 0 var(--sp-md);
+  color: white;
+  outline: none;
+}
+
+/* ----------------------------------------------------------
+   7. Food Ordering (Feature 4)
+   ---------------------------------------------------------- */
+.menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-md); }
+
+.menu-item {
+  background: var(--navy-light);
+  padding: var(--sp-md);
+  border-radius: var(--radius-md);
+  text-align: center;
+  transition: transform 0.2s;
+}
+.menu-item:active { transform: scale(0.95); }
+.menu-icon { font-size: 2rem; margin-bottom: var(--sp-sm); }
+.menu-name { font-weight: 700; display: block; }
+.menu-price { color: var(--electric-blue); font-weight: 800; }
+
+/* ----------------------------------------------------------
+   8. Components & Helpers
+   ---------------------------------------------------------- */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--sp-md);
+}
+
+.chip {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: rgba(255,255,255,0.1);
+}
+.chip--danger { color: var(--danger); background: rgba(255,77,77,0.1); }
+.chip--success { color: var(--success); background: rgba(0,219,139,0.1); }
+
+.btn {
+  padding: 12px var(--sp-lg);
+  border-radius: var(--radius-sm);
+  font-weight: 800;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn--primary { background: var(--electric-blue); color: white; }
+.btn--full { width: 100%; }
+
+.toast {
+  position: fixed;
+  top: 80px;
+  left: var(--sp-md);
+  right: var(--sp-md);
+  background: var(--electric-blue);
+  color: white;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  z-index: 2000;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: slideIn 0.3s forwards;
+}
+
+@keyframes slideIn { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+/* ----------------------------------------------------------
+   9. Digital Ticket UI (QR Bonus)
+   ---------------------------------------------------------- */
+.ticket-container {
+  width: 90%;
+  max-width: 360px;
+  background: var(--navy-light) !important;
+  border: none !important;
+  color: white;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.ticket-header {
+  background: var(--electric-blue);
+  padding: var(--sp-md);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ticket-body { padding: var(--sp-lg); }
+
+.ticket-dashed {
+  height: 1px;
+  border-top: 2px dashed var(--navy-accent);
+  position: relative;
+  margin: 0 -24px;
+}
+.ticket-dashed::before,
+.ticket-dashed::after {
+  content: '';
+  position: absolute;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  background: rgba(0,0,0,0.9);
+  border-radius: 50%;
+}
+.ticket-dashed::before { left: -10px; }
+.ticket-dashed::after { right: -10px; }
+
+#qr-img {
+  image-rendering: pixelated;
+  display: block;
+}
+
+.fadeIn { animation: fadeIn 0.5s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+.text-success { color: var(--success); }
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .app-shell { max-width: 480px; margin: 0 auto; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+}
