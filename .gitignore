@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+backend/firebase-key.json
+*.pem
+*.log
+.DS_Store
