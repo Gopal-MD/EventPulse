@@ -1,45 +1,82 @@
-# EventPulse — Smart Physical Event Companion
+# EventPulse Platform — Smart Meetup Experience
 
-## Vertical
-Physical Event Experience
+EventPulse is an AI-powered multi-event platform designed for organizers to host events and attendees to discover, join, and interact in real-time. It transforms the traditional event experience using Google Services and Gemini AI.
 
-## Problem Statement
-Attendees at large physical events lose valuable time navigating venues, missing relevant sessions, and failing to connect with the right people due to lack of real-time, personalized guidance.
+---
 
-## Solution
-EventPulse is a browser-based AI companion that provides personalized agendas, live crowd data, AI-powered networking matches, natural language venue navigation, and instant session feedback — all powered by Google Services.
+## 🌟 CORE FEATURES
 
-## Google Services Used
-| Service | Purpose |
-|---|---|
-| Gemini 1.5 Flash | Agenda personalization, networking AI, venue Q&A |
-| Google Sheets API | Live crowd data, attendee profiles, announcements, feedback |
-| Google Fonts (Inter) | Typography system |
-| Google Material Symbols | Consistent icon system |
+### 🔐 Authentication & Roles
+- **Dual Personas:** Signup as an **Attendee** (to discover events) or an **Organizer** (to host and manage them).
+- **Persistent Sessions:** Uses `localStorage` for a seamless, login-once experience.
+- **Secure MVP:** Input sanitization and basic hashing for a robust prototype.
 
-## Features
-- Personalized AI agenda based on user role and interests
-- Live session crowd meter (color-coded)
-- AI networking matchmaker with icebreaker suggestions
-- Natural language venue navigator
-- Real-time announcements feed
-- One-tap session feedback to Sheets
+### 🏢 Organizer Dashboard
+- **Marketplace Publishing:** Create events with descriptions, categories, and custom session agendas.
+- **Management:** View attendee participation and post real-time urgent announcements.
 
-## How to Run
-1. Clone this repository
-2. Copy config.js and fill in your API keys
-3. Enable Gemini API and Google Sheets API in Google Cloud Console
-4. Create Google Sheet with tabs: crowd_data, attendees, announcements, feedback
-5. Open index.html in any browser
+### 👥 Attendee Experience
+- **Discovery Engine:** Search events by keyword or filter by category (Tech, Business, Social, etc.).
+- **My Events:** One-tap joining and automatic schedule synchronization.
+- **Profile Hub:** Personal networking profile with AI-matched connection suggestions.
 
-## Assumptions
-- Event data is pre-loaded; real deployment would pull from Sheets
-- Crowd data is updated by organizers manually in Google Sheets
-- Single-day event format assumed for MVP
+### 🤝 Social & Networking
+- **RSVP System:** Multi-status participation (Going / Interested).
+- **Group Chat:** Event-specific discussion boards for community interaction.
+- **AI Icebreakers:** Automatically generated conversation starters to help people connect.
 
-## Future Improvements
-- QR code check-in with Google Wallet
-- Google Maps indoor navigation integration
-- Firebase Realtime Database for sub-second updates
-- Google Calendar integration for agenda sync
-- Progressive Web App (PWA) with offline support
+### 🧠 Gemini AI Intelligence
+- **Smart Recommendations:** Suggests events based on user interests and past attendance.
+- **Session Personalization:** Recommends the best sessions within a single event.
+- **Event Summarizer:** Generates punchy, one-sentence summaries for event descriptions.
+
+---
+
+## 🏗️ PROJECT ARCHITECTURE
+
+```text
+/eventpulse
+  index.html          ← Semantic HTML5, ARIA labels, 6-tab navigation
+  style.css           ← Blue/Amber theme, BEM naming, glassmorphism
+  app.js              ← Main platform controller & tab state
+  auth.js             ← Login/Signup logic
+  user.js             ← Session & Role-based access management
+  events.js           ← Event CRUD & participation logic
+  chat.js             ← Discussion board logic
+  gemini.js           ← All AI/LLM logic (Gemini 1.5 Flash)
+  sheets.js           ← Google Sheets API persistence layer
+  config.js           ← Centralized secrets & tab definition
+  utils.js            ← Helpers (XSS sanitization, formatters)
+  tests.js            ← Unit tests for platform logic
+```
+
+---
+
+## 🚀 GETTING STARTED
+
+1. **Configure API Keys:**
+   Open `config.js` and add your **Gemini API Key** and **Google Sheets API Key**.
+
+2. **Setup Sheet Structure:**
+   Create 5 tabs in your Google Sheet: `users`, `events`, `participation`, `announcements`, and `messages`.
+
+3. **Deploy:**
+   Host the `/eventpulse` folder on any static web server (GitHub Pages, Netlify, Vercel).
+
+4. **Run Locally:**
+   Simply open `index.html` in any modern web browser or use a local dev server.
+
+---
+
+## 🚦 TESTING
+
+Open the developer console and execute `runAllTests()` to verify:
+- [x] Login/Signup validation
+- [x] Event creation logic
+- [x] Joining/Leaving synchronization
+- [x] Gemini response parsing
+
+---
+
+**Developed for TechSphere 2025 by Gopal MD.**
+Web App (PWA) with offline support
