@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Navigation, MapPin, Users } from 'lucide-react';
+import { Loader } from '@googlemaps/js-api-loader';
 
 // Famous Indian Cricket Grounds with real stadium coordinates
 const INDIAN_STADIUMS = [
@@ -9,11 +10,11 @@ const INDIAN_STADIUMS = [
     lat: 18.9388,
     lng: 72.8254,
     capacity: '33,108',
-    gates: {
-      'Gate 1': { top: '8%', left: '50%' },
-      'Gate 2': { top: '50%', left: '92%' },
-      'Gate 3': { top: '90%', left: '50%' },
-      'Gate 4': { top: '50%', left: '8%' }
+    gateCoords: {
+      'Gate 1': { lat: 18.9392, lng: 72.8254 },
+      'Gate 2': { lat: 18.9388, lng: 72.8258 },
+      'Gate 3': { lat: 18.9384, lng: 72.8254 },
+      'Gate 4': { lat: 18.9388, lng: 72.8250 }
     }
   },
   {
@@ -22,11 +23,11 @@ const INDIAN_STADIUMS = [
     lat: 22.5645,
     lng: 88.3433,
     capacity: '68,000',
-    gates: {
-      'Gate 1': { top: '8%', left: '40%' },
-      'Gate 2': { top: '40%', left: '92%' },
-      'Gate 3': { top: '92%', left: '60%' },
-      'Gate 4': { top: '60%', left: '8%' }
+    gateCoords: {
+      'Gate 1': { lat: 22.5649, lng: 88.3433 },
+      'Gate 2': { lat: 22.5645, lng: 88.3437 },
+      'Gate 3': { lat: 22.5641, lng: 88.3433 },
+      'Gate 4': { lat: 22.5645, lng: 88.3429 }
     }
   },
   {
@@ -35,24 +36,24 @@ const INDIAN_STADIUMS = [
     lat: 12.9789,
     lng: 77.5998,
     capacity: '38,000',
-    gates: {
-      'Gate 1': { top: '8%', left: '50%' },
-      'Gate 2': { top: '50%', left: '92%' },
-      'Gate 3': { top: '90%', left: '50%' },
-      'Gate 4': { top: '50%', left: '8%' }
+    gateCoords: {
+      'Gate 1': { lat: 12.9793, lng: 77.5998 },
+      'Gate 2': { lat: 12.9789, lng: 77.6002 },
+      'Gate 3': { lat: 12.9785, lng: 77.5998 },
+      'Gate 4': { lat: 12.9789, lng: 77.5994 }
     }
   },
   {
     name: 'Narendra Modi Stadium',
     city: 'Ahmedabad',
-    lat: 23.0900,
-    lng: 72.0856,
+    lat: 23.0911,
+    lng: 72.5856,
     capacity: '1,32,000',
-    gates: {
-      'Gate 1': { top: '5%', left: '50%' },
-      'Gate 2': { top: '50%', left: '95%' },
-      'Gate 3': { top: '93%', left: '50%' },
-      'Gate 4': { top: '50%', left: '5%' }
+    gateCoords: {
+      'Gate 1': { lat: 23.0917, lng: 72.5856 },
+      'Gate 2': { lat: 23.0911, lng: 72.5862 },
+      'Gate 3': { lat: 23.0905, lng: 72.5856 },
+      'Gate 4': { lat: 23.0911, lng: 72.5850 }
     }
   },
   {
@@ -61,11 +62,11 @@ const INDIAN_STADIUMS = [
     lat: 13.0627,
     lng: 80.2791,
     capacity: '50,000',
-    gates: {
-      'Gate 1': { top: '8%', left: '48%' },
-      'Gate 2': { top: '48%', left: '92%' },
-      'Gate 3': { top: '90%', left: '52%' },
-      'Gate 4': { top: '52%', left: '8%' }
+    gateCoords: {
+      'Gate 1': { lat: 13.0632, lng: 80.2791 },
+      'Gate 2': { lat: 13.0627, lng: 80.2796 },
+      'Gate 3': { lat: 13.0622, lng: 80.2791 },
+      'Gate 4': { lat: 13.0627, lng: 80.2786 }
     }
   }
 ];
@@ -75,10 +76,85 @@ const MAPS_KEY = import.meta.env.VITE_MAPS_API_KEY;
 export default function LiveNavigation() {
   const [data, setData] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [map, setMap] = useState(null);
+  const mapRef = useRef(null);
+  const markersRef = useRef({});
 
   const stadium = INDIAN_STADIUMS[selectedIdx];
 
-  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${stadium.lat},${stadium.lng}&zoom=17&size=900x480&maptype=satellite&key=${MAPS_KEY}`;
+  // Initialize Map
+  useEffect(() => {
+    const loader = new Loader({
+      apiKey: MAPS_KEY,
+      version: 'weekly',
+      libraries: ['marker']
+    });
+
+    loader.load().then((google) => {
+      const newMap = new google.maps.Map(mapRef.current, {
+        center: { lat: stadium.lat, lng: stadium.lng },
+        zoom: 17,
+        mapTypeId: 'satellite',
+        disableDefaultUI: true,
+        zoomControl: true,
+        mapId: 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
+      });
+      setMap(newMap);
+    });
+  }, []);
+
+  // Sync Map center when stadium changes
+  useEffect(() => {
+    if (map) {
+      map.setCenter({ lat: stadium.lat, lng: stadium.lng });
+    }
+  }, [selectedIdx, map]);
+
+  // Handle markers and scaling updates
+  useEffect(() => {
+    if (!map || !data) return;
+
+    const google = window.google;
+    
+    // Cleanup old markers if stadium changed (implied by markersRef check)
+    Object.keys(stadium.gateCoords).forEach(gate => {
+      const info = data.gates[gate];
+      if (!info) return;
+
+      let color = '#10b981'; // green
+      if (info.status === 'Medium') color = '#f59e0b';
+      if (info.status === 'High') color = '#ef4444';
+
+      if (!markersRef.current[gate]) {
+        // Create new marker
+        const markerElement = document.createElement('div');
+        markerElement.className = 'custom-marker';
+        markerElement.innerHTML = `
+          <div class="marker-pulse" style="background: ${color}33; border: 2px solid ${color};">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </div>
+          <div class="marker-label" style="color: ${color}">${gate}</div>
+        `;
+
+        markersRef.current[gate] = new google.maps.marker.AdvancedMarkerElement({
+          map,
+          position: stadium.gateCoords[gate],
+          title: gate,
+          content: markerElement
+        });
+      } else {
+        // Update existing marker color/position
+        markersRef.current[gate].position = stadium.gateCoords[gate];
+        const el = markersRef.current[gate].content;
+        el.querySelector('.marker-pulse').style.background = `${color}33`;
+        el.querySelector('.marker-pulse').style.border = `2px solid ${color}`;
+        el.querySelector('svg').setAttribute('stroke', color);
+        el.querySelector('.marker-label').style.color = color;
+        el.querySelector('.marker-label').innerText = `${gate} · ${info.status}`;
+      }
+    });
+
+  }, [data, map, stadium]);
 
   const fetchState = async () => {
     try {
@@ -96,22 +172,34 @@ export default function LiveNavigation() {
     return () => clearInterval(interval);
   }, []);
 
-  // Find lowest wait time stall
   let bestStall = null;
   if (data?.foodQueues) {
     bestStall = data.foodQueues.reduce((prev, curr) => prev.waitTime < curr.waitTime ? prev : curr);
   }
 
-  const gateLayout = stadium.gates;
-
   return (
     <main className="container" aria-label="Live Stadium Navigation">
+      <style>{`
+        .custom-marker { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .marker-pulse { 
+          width: 40px; height: 40px; border-radius: 50%;
+          display: flex; align-items: center; justify-content: center;
+          transition: all 0.3s ease;
+          box-shadow: 0 0 15px rgba(0,0,0,0.5);
+        }
+        .marker-label {
+          background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
+          border-radius: 6px; padding: 2px 8px; font-size: 0.7rem;
+          font-weight: bold; white-space: nowrap; pointer-events: none;
+        }
+      `}</style>
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
         <div>
           <h1 style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '1.6rem', margin: 0 }}>
             <MapPin size={28} style={{ color: 'var(--accent-primary)' }} aria-hidden="true" />
-            Live Stadium Map
+            Live Stadium Map (Interactive)
           </h1>
           <p className="text-muted" style={{ marginTop: '4px' }}>
             {stadium.name} · {stadium.city} · Capacity: {stadium.capacity}
@@ -123,7 +211,12 @@ export default function LiveNavigation() {
           <select
             id="stadium-selector"
             value={selectedIdx}
-            onChange={e => setSelectedIdx(Number(e.target.value))}
+            onChange={e => {
+              // Clear markers when stadium changes
+              Object.values(markersRef.current).forEach(m => m.map = null);
+              markersRef.current = {};
+              setSelectedIdx(Number(e.target.value));
+            }}
             style={{ width: 'auto', marginBottom: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
           >
             {INDIAN_STADIUMS.map((s, i) => (
@@ -137,12 +230,7 @@ export default function LiveNavigation() {
 
       {/* AR Alert Banner */}
       {data?.alerts && data.alerts.length > 0 && (
-        <section 
-          className="glass-panel" 
-          role="alert" 
-          aria-live="assertive" 
-          style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', marginBottom: '20px', padding: '16px 20px' }}
-        >
+        <section className="glass-panel" role="alert" aria-live="assertive" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', marginBottom: '20px', padding: '16px 20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Navigation size={22} style={{ color: 'var(--danger)', flexShrink: 0 }} aria-hidden="true" />
             <div>
@@ -153,105 +241,34 @@ export default function LiveNavigation() {
         </section>
       )}
 
-      {/* Satellite Map with Gate Overlays */}
+      {/* Interactive Map Container */}
       <section 
         aria-label="Interactive Stadium Map" 
         style={{
-          position: 'relative',
           width: '100%',
           height: '480px',
           borderRadius: '16px',
           overflow: 'hidden',
           border: '1px solid var(--panel-border)',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
+          boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+          position: 'relative'
         }}
       >
-        {/* Real Google Satellite Map */}
-        <img
-          src={mapUrl}
-          alt={`Satellite view of ${stadium.name} in ${stadium.city}`}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        />
-
-        {/* Dark overlay for better dot visibility */}
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} aria-hidden="true" />
-
-        {/* Stadium Name Watermark */}
+        <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+        
+        {/* Waterfall Watermark */}
         <div style={{
-          position: 'absolute', bottom: '14px', left: '16px',
-          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+          position: 'absolute', bottom: '24px', left: '16px',
+          background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
           borderRadius: '8px', padding: '6px 14px',
-          color: 'white', fontSize: '0.85rem', fontWeight: 600
+          color: 'white', fontSize: '0.85rem', fontWeight: 600, pointerEvents: 'none'
         }}>
-          📍 {stadium.name}, {stadium.city}
-        </div>
-
-        {/* Powered by Google */}
-        <div style={{
-          position: 'absolute', bottom: '14px', right: '16px',
-          background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '4px 10px',
-          fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)'
-        }}>
-          Powered by Google Maps
-        </div>
-
-        {/* Gate Dots Overlay */}
-        <div aria-label="Gate status markers" role="group">
-          {data && Object.keys(data.gates).map(gate => {
-            const info = data.gates[gate];
-            const pos = gateLayout[gate];
-            if (!pos) return null;
-
-            let color = '#10b981'; // green
-            if (info.status === 'Medium') color = '#f59e0b';
-            if (info.status === 'High') color = '#ef4444';
-
-            return (
-              <div 
-                key={gate} 
-                role="status" 
-                aria-label={`${gate} crowd status: ${info.status}`}
-                style={{
-                  position: 'absolute',
-                  top: pos.top,
-                  left: pos.left,
-                  transform: 'translate(-50%, -50%)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
-                  zIndex: 10
-                }}
-              >
-                {/* Pulsing outer ring */}
-                <div style={{
-                  width: '40px', height: '40px', borderRadius: '50%',
-                  background: `${color}33`,
-                  border: `2px solid ${color}`,
-                  boxShadow: `0 0 20px ${color}`,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  animation: info.status === 'High' ? 'blink 0.8s infinite' : 'none'
-                }}>
-                  <Users size={16} color={color} aria-hidden="true" />
-                </div>
-                {/* Gate Label */}
-                <div style={{
-                  background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
-                  borderRadius: '6px', padding: '2px 8px',
-                  fontSize: '0.7rem', fontWeight: 'bold', color: color,
-                  whiteSpace: 'nowrap'
-                }}>
-                  {gate} · {info.status}
-                </div>
-              </div>
-            );
-          })}
+          📍 Interactive Professional View
         </div>
       </section>
 
-      {/* Gate Status Cards + Best Stall */}
+      {/* Gate Status Cards + Legend */}
       <section className="grid mt-4" aria-label="Stadium Status Details">
-        {/* Gate Status */}
         <div className="glass-panel" aria-live="polite">
           <h2 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Gate Status</h2>
           {data && Object.keys(data.gates).map(gate => {
@@ -265,7 +282,6 @@ export default function LiveNavigation() {
           })}
         </div>
 
-        {/* Map Legend */}
         <div className="glass-panel">
           <h2 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>Legend</h2>
           <ul style={{ listStyle: 'none', lineHeight: '2', padding: 0 }}>
@@ -275,7 +291,6 @@ export default function LiveNavigation() {
           </ul>
         </div>
 
-        {/* Best Food Stall */}
         {bestStall && (
           <article className="glass-panel" style={{ borderLeft: '4px solid var(--success)' }} aria-label="Dynamic Food Recommendation">
             <h2 style={{ fontSize: '1.1rem' }}>⚡ Quickest Food Stall</h2>

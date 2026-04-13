@@ -263,7 +263,11 @@ app.get(/.*/, (req, res) => {
 });
 
 // ─── Start Server — ALWAYS binds to PORT regardless of Firebase status ────────
-app.listen(PORT, () => {
-  console.log(`[EventPulse] Server listening on port ${PORT}`);
-  console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[EventPulse] Server listening on port ${PORT}`);
+    console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
+  });
+}
+
+module.exports = app;
