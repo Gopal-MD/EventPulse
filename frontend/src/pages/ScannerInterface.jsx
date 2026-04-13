@@ -1,20 +1,27 @@
 import { useState, useRef, useEffect } from 'react';
 import QrScanner from 'qr-scanner';
 
+/**
+ * ScannerInterface — Coordinator Entry Validation Page
+ * Supports: camera QR scanning + manual ticket ID entry
+ * Security: all validation done server-side; no client-side trust
+ * Accessibility: ARIA live regions, semantic HTML, keyboard-friendly
+ */
 export default function ScannerInterface() {
-  const [ticketId, setTicketId] = useState('');
+  const [ticketId, setTicketId]     = useState('');
   const [scanResult, setScanResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]       = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  
-  const videoRef = useRef(null);
+  const [camError, setCamError]     = useState('');
+
+  const videoRef   = useRef(null);
   const scannerRef = useRef(null);
 
-  useEffect(() => {
-    return () => stopScanner();
-  }, []);
+  // Cleanup camera on unmount
+  useEffect(() => { return () => stopScanner(); }, []);
 
   const startScanner = () => {
+    setCamError('');
     setIsScanning(true);
     setTimeout(() => {
       if (!videoRef.current) return;
@@ -28,16 +35,16 @@ export default function ScannerInterface() {
             processScan(code);
           }
         },
-        { 
-          highlightScanRegion: true, 
+        {
+          highlightScanRegion: true,
           highlightCodeOutline: true,
-          preferredCamera: 'user', // Better for laptop webcams (MateBook D 16)
-          maxScansPerSecond: 15, // Reduced from 60 to prevent blurry mid-frame scans on 720p 
+          maxScansPerSecond: 25,
           returnDetailedScanResult: true
         }
       );
       scannerRef.current.start().catch((err) => {
-        console.error(err);
+        console.error('[Scanner]', err);
+        setCamError('Camera access denied. Please use manual entry below.');
         stopScanner();
       });
     }, 10);
@@ -53,19 +60,24 @@ export default function ScannerInterface() {
   };
 
   const processScan = async (id) => {
+    // Basic client-side guard (server validates authoritatively)
+    if (!id || id.trim().length < 3) {
+      setScanResult({ error: 'Invalid ticket ID format' });
+      return;
+    }
     setLoading(true);
     setScanResult(null);
     try {
       const res = await fetch('/api/ticket/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ticketId: id })
+        body: JSON.stringify({ ticketId: id.trim() })
       });
       const data = await res.json();
       setScanResult(data);
     } catch (err) {
-      console.error(err);
-      setScanResult({ error: "Failed to connect to server" });
+      console.error('[ProcessScan]', err);
+      setScanResult({ error: 'Failed to connect to server. Please retry.' });
     } finally {
       setLoading(false);
     }
@@ -77,60 +89,114 @@ export default function ScannerInterface() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '600px' }}>
-      <h2 className="mb-4">Coordinator Entry Scanner</h2>
-      
-      <div className="glass-panel text-center">
-        <p className="text-muted mb-4">Validate QR Code via Camera or Ticket ID</p>
-        
+    <main className="container" style={{ maxWidth: '620px' }} aria-label="Coordinator Entry Scanner">
+      <h1 className="mb-4" style={{ fontSize: '1.6rem' }}>📷 Entry Validator</h1>
+
+      <section className="glass-panel text-center" aria-labelledby="scanner-heading">
+        <h2 id="scanner-heading" className="text-muted mb-4" style={{ fontSize: '1rem', fontWeight: 400 }}>
+          Scan a QR code with your camera, or enter a Ticket ID below
+        </h2>
+
+        {/* Camera scanner area */}
         {isScanning ? (
-          <div style={{ position: 'relative', width: '100%', maxWidth: '500px', margin: '0 auto', borderRadius: '12px', overflow: 'hidden' }}>
-            <p className="text-warning mb-2" style={{ fontSize: '0.85rem' }}>
-              For 720p HD cameras (MateBook D 16), keep the QR code 6-8 inches away and hold steady.
+          <div
+            role="region"
+            aria-label="Live camera QR scanner"
+            style={{ position: 'relative', width: '100%', maxWidth: '500px', margin: '0 auto', borderRadius: '12px', overflow: 'hidden' }}
+          >
+            <p className="text-muted mb-2" style={{ fontSize: '0.85rem' }}>
+              Hold QR code steady, 6–8 inches from camera
             </p>
-            <video ref={videoRef} style={{ width: '100%', transform: 'scaleX(-1)' }}></video>
-            <button className="btn-secondary mt-3" onClick={stopScanner}>Cancel Scan</button>
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+            <video
+              ref={videoRef}
+              aria-label="Camera feed for QR code scanning"
+              style={{ width: '100%', borderRadius: '8px' }}
+            />
+            <button
+              className="btn-secondary mt-3"
+              onClick={stopScanner}
+              aria-label="Stop camera and cancel QR scan"
+            >
+              ✕ Cancel Scan
+            </button>
           </div>
         ) : (
           <>
-            <button className="btn-primary mb-4" onClick={startScanner} disabled={loading} style={{ background: 'var(--accent)' }}>
+            <button
+              id="start-camera-btn"
+              className="btn-primary mb-4"
+              onClick={startScanner}
+              disabled={loading}
+              aria-label="Activate camera for QR code scanning"
+            >
               📷 Start Camera Scan
             </button>
-            <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>OR manually enter ID</p>
-            <form onSubmit={handleManualScan}>
-              <input 
-                type="text" 
-                placeholder="Enter TKT-XXXXXX" 
-                required 
+
+            {camError && (
+              <p role="alert" style={{ color: 'var(--danger)', marginBottom: '12px', fontSize: '0.875rem' }}>
+                {camError}
+              </p>
+            )}
+
+            <p className="text-muted mb-3" style={{ fontSize: '0.9rem' }}>— or manually enter Ticket ID —</p>
+
+            <form onSubmit={handleManualScan} noValidate>
+              <label htmlFor="ticket-id-input" className="text-muted" style={{ display: 'block', marginBottom: '4px' }}>
+                Ticket ID
+              </label>
+              <input
+                id="ticket-id-input"
+                type="text"
+                placeholder="TKT-XXXXXX"
+                required
+                aria-required="true"
+                autoComplete="off"
                 value={ticketId}
                 onChange={e => setTicketId(e.target.value.toUpperCase())}
                 style={{ textAlign: 'center', fontSize: '1.2rem', letterSpacing: '2px' }}
               />
-              <button className="btn-primary" type="submit" disabled={loading}>
-                {loading ? 'Validating...' : 'Validate Ticket ID'}
+              <button
+                className="btn-primary"
+                type="submit"
+                disabled={loading || !ticketId.trim()}
+                aria-busy={loading}
+                aria-label="Validate the entered ticket ID"
+              >
+                {loading ? 'Validating...' : '✅ Validate Entry'}
               </button>
             </form>
           </>
         )}
 
-        {scanResult && (
-          <div className={`alert mt-4 ${scanResult.success ? '' : 'danger'}`} style={scanResult.success ? { background: 'rgba(16, 185, 129, 0.1)', borderLeft: '4px solid var(--success)', color: '#6ee7b7' } : {}}>
-            {scanResult.success ? (
-              <div style={{ textAlign: 'left', width: '100%' }}>
-                <h4 style={{ color: 'var(--success)', marginBottom: '10px' }}>{scanResult.message} ✅</h4>
-                <p><strong>Name:</strong> {scanResult.ticket.name}</p>
-                <p><strong>Gate:</strong> {scanResult.ticket.gate}</p>
-                <p><strong>Seat:</strong> {scanResult.ticket.seatNumber}</p>
-              </div>
-            ) : (
-              <div style={{ textAlign: 'left', width: '100%' }}>
-                <h4>Access Denied ❌</h4>
-                <p>{scanResult.error || scanResult.message}</p>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
+        {/* Scan result — live region so screen readers announce it */}
+        <div aria-live="assertive" aria-atomic="true">
+          {scanResult && (
+            <div
+              role="alert"
+              className={`alert mt-4 ${scanResult.success ? '' : 'danger'}`}
+              style={scanResult.success
+                ? { background: 'rgba(16, 185, 129, 0.1)', borderLeft: '4px solid var(--success)', color: '#6ee7b7' }
+                : {}
+              }
+            >
+              {scanResult.success ? (
+                <dl style={{ textAlign: 'left', width: '100%', margin: 0 }}>
+                  <h3 style={{ color: 'var(--success)', marginBottom: '10px' }}>{scanResult.message} ✅</h3>
+                  <div><dt><strong>Name</strong></dt><dd>{scanResult.ticket.name}</dd></div>
+                  <div><dt><strong>Gate</strong></dt><dd>{scanResult.ticket.gate}</dd></div>
+                  <div><dt><strong>Seat</strong></dt><dd>{scanResult.ticket.seatNumber}</dd></div>
+                </dl>
+              ) : (
+                <div style={{ textAlign: 'left', width: '100%' }}>
+                  <h3 aria-label="Access denied">Access Denied ❌</h3>
+                  <p>{scanResult.error || scanResult.message}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   );
 }

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
@@ -9,6 +10,18 @@ const PORT = process.env.PORT || 8080;
 
 app.use(cors());
 app.use(express.json());
+
+// ─── Security: Rate Limiting ──────────────────────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this IP, please try again later.' }
+});
+
+// Apply rate limiting to all API routes
+app.use('/api/', limiter);
 
 // ─── In-memory fallback store (used if Firebase is unavailable) ───────────────
 let memDb = {
@@ -147,8 +160,12 @@ app.get('/api/health', (req, res) =>
 // 1. Smart QR Ticket System
 app.post('/api/ticket/generate', async (req, res) => {
   try {
-    const { name, email } = req.body;
+    let { name, email } = req.body;
     if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+
+    // Basic sanitization
+    name = name.trim().substring(0, 100);
+    email = email.trim().toLowerCase().substring(0, 100);
 
     const firstLetter = name.trim().charAt(0).toUpperCase();
     let gate = 'Gate 4';
