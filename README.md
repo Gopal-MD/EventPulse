@@ -171,7 +171,12 @@ FIREBASE_PRIVATE_KEY=<private_key_with_escaped_newlines>
 FIREBASE_DATABASE_URL=<firebase_db_url>
 VITE_MAPS_API_KEY=<maps_key>
 QR_TOKEN_SECRET=<optional_strong_secret>
+MAPS_API_KEY=<maps_key_runtime_for_cloud_run>
 ```
+
+Note:
+- In Cloud Run, `MAPS_API_KEY` is preferred because the frontend is prebuilt and served statically.
+- `VITE_MAPS_API_KEY` is still supported for local/build-time injection.
 
 ## Deployment
 

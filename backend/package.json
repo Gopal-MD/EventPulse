@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "test": "vitest run",
+    "test:integration": "vitest run tests/api.test.js",
     "coverage": "vitest run --coverage"
   },  "keywords": [],
   "author": "",

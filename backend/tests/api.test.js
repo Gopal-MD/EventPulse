@@ -27,6 +27,20 @@ describe('EventPulse Backend Integration Tests', () => {
     expect(['firebase', 'memory']).toContain(res.body.mode);
   });
 
+  it('GET / should return 200 OK for root navigation', async () => {
+    const res = await request(app).get('/');
+    expect(res.status).toBe(200);
+    expect((res.text || JSON.stringify(res.body || {}))).toMatch(/EventPulse|status/i);
+  });
+
+  it('GET /api/config should load the Google Maps API key from runtime env', async () => {
+    process.env.MAPS_API_KEY = 'test-maps-key-123';
+
+    const res = await request(app).get('/api/config');
+    expect(res.status).toBe(200);
+    expect(res.body.mapsApiKey).toBe('test-maps-key-123');
+  });
+
   describe('Ticket Lifecycle', () => {
     it('POST /api/ticket/generate should create a valid ticket', async () => {
       const payload = { name: 'Adam Smith', email: 'adam@example.com' };

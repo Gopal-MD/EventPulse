@@ -71,22 +71,44 @@ const INDIAN_STADIUMS = [
   }
 ];
 
-const MAPS_KEY = import.meta.env.VITE_MAPS_API_KEY;
+const STATIC_MAPS_KEY = import.meta.env.VITE_MAPS_API_KEY;
 
 export default function LiveNavigation() {
   const [data, setData] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [map, setMap] = useState(null);
   const [mapError, setMapError] = useState('');
+  const [mapsKey, setMapsKey] = useState(STATIC_MAPS_KEY || '');
   const mapRef = useRef(null);
   const markersRef = useRef({});
   const fetchInFlight = useRef(false);
 
   const stadium = INDIAN_STADIUMS[selectedIdx];
 
+  // Load runtime config (Cloud Run friendly) and fallback to static Vite env
+  useEffect(() => {
+    let active = true;
+    async function loadRuntimeConfig() {
+      try {
+        const res = await fetch('/api/config');
+        const cfg = await res.json();
+        if (active && cfg?.mapsApiKey) {
+          setMapsKey(cfg.mapsApiKey);
+        }
+      } catch (err) {
+        // Silent fallback: keep STATIC_MAPS_KEY when config endpoint is unavailable
+        console.warn('[MapConfig] Runtime config unavailable, using static key if present.');
+      }
+    }
+    loadRuntimeConfig();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Initialize Map
   useEffect(() => {
-    if (!MAPS_KEY) {
+    if (!mapsKey) {
       setMapError('Google Maps key is missing. Showing live status without map tiles.');
       return;
     }
@@ -95,7 +117,7 @@ export default function LiveNavigation() {
 
     async function initMap() {
       try {
-        setOptions({ apiKey: MAPS_KEY, version: 'weekly' });
+        setOptions({ apiKey: mapsKey, version: 'weekly' });
         const { Map } = await importLibrary('maps');
         await importLibrary('marker');
 
@@ -123,7 +145,7 @@ export default function LiveNavigation() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [mapsKey]);
 
   // Sync Map center when stadium changes
   useEffect(() => {

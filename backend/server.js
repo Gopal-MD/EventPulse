@@ -233,6 +233,22 @@ app.get('/api/health', (req, res) =>
   res.json({ status: 'ok', firebase: !!fireDb, mode: fireDb ? 'firebase' : 'memory' })
 );
 
+// Runtime config for frontend (Cloud Run envs are available here at runtime)
+app.get('/api/config', (req, res) => {
+  res.json({
+    mapsApiKey: process.env.MAPS_API_KEY || process.env.VITE_MAPS_API_KEY || '',
+  });
+});
+
+// Root route: serves the frontend when built, otherwise returns a simple 200 for CI/tests.
+app.get('/', (req, res) => {
+  const indexPath = path.join(__dirname, '../frontend/dist/index.html');
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  return res.status(200).json({ status: 'ok', message: 'EventPulse backend is running' });
+});
+
 // 1. Smart QR Ticket System
 app.post('/api/ticket/generate', async (req, res) => {
   try {
