@@ -97,6 +97,27 @@ Run:
 npm run test:mock
 ```
 
+### How to run all tests (judge quick start)
+
+From project root, use:
+
+```bash
+# 1) Run only the tests/ folder mock runner
+npm run test:mock
+
+# 2) Run backend integration tests
+npm run test:integration --prefix backend
+
+# 3) Run frontend tests
+npm test --prefix frontend
+
+# 4) Run everything together (mock + integration + frontend)
+npm test
+
+# 5) Run CI-equivalent flow (tests + build)
+npm run ci
+```
+
 ### Existing automated tests
 - Backend Vitest + Supertest
 - Frontend Vitest
