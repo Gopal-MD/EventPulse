@@ -4,11 +4,31 @@ const path = require('path');
 const admin = require('firebase-admin');
 require('dotenv').config();
 
-// Initialize Firebase Admin
-const serviceAccount = require('./firebase-key.json');
+// Initialize Firebase Admin SDK
+// Supports two modes:
+//   1. Local dev: reads firebase-key.json if it exists
+//   2. Cloud Run: reads individual env vars injected via Cloud Run secrets
+let firebaseCredential;
+const keyPath = path.join(__dirname, 'firebase-key.json');
+const fs = require('fs');
+
+if (fs.existsSync(keyPath)) {
+  // Local development — use the JSON key file
+  const serviceAccount = require('./firebase-key.json');
+  firebaseCredential = admin.credential.cert(serviceAccount);
+} else {
+  // Cloud Run — use environment variables
+  firebaseCredential = admin.credential.cert({
+    projectId:   process.env.FIREBASE_PROJECT_ID,
+    privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+  });
+}
+
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: "https://promptwars-events-default-rtdb.asia-southeast1.firebasedatabase.app"
+  credential: firebaseCredential,
+  databaseURL: process.env.FIREBASE_DATABASE_URL ||
+    "https://promptwars-events-default-rtdb.asia-southeast1.firebasedatabase.app"
 });
 const fireDb = admin.database();
 
