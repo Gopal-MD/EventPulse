@@ -9,6 +9,7 @@
     "test:integration": "npm run test:integration --prefix backend",
     "build:frontend": "npm run build --prefix frontend",
     "ci": "npm run test:mock && npm run test:integration && npm test --prefix frontend && npm run build:frontend",
+    "reliability": "npm run ci && npm run coverage",
     "coverage": "npm run coverage --prefix backend && npm run coverage --prefix frontend"
   },
   "keywords": [],

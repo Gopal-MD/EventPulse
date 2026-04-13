@@ -103,5 +103,24 @@ describe('EventPulse Backend Integration Tests', () => {
       expect(res.body.state).toBeDefined();
       expect(res.body.state.gates).toBeDefined();
     });
+
+    it('E2E smoke: generate -> scan -> state reflects checked-in user', async () => {
+      const generated = await request(app)
+        .post('/api/ticket/generate')
+        .send({ name: 'Reliability Runner', email: 'runner@example.com' });
+
+      expect(generated.status).toBe(200);
+      const ticketId = generated.body.ticket.ticketId;
+
+      const scanned = await request(app)
+        .post('/api/ticket/scan')
+        .send({ ticketId, qrToken: generated.body.ticket.qrToken });
+      expect(scanned.status).toBe(200);
+
+      const state = await request(app).get('/api/state');
+      expect(state.status).toBe(200);
+      expect(state.body.tickets[ticketId]).toBeDefined();
+      expect(state.body.tickets[ticketId].checkedIn).toBe(true);
+    });
   });
 });

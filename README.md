@@ -4,24 +4,31 @@
 
 PromptWars Hackathon Submission (Google Cloud Program Aligned)
 
-## Problem Statement Alignment
+## Submission Links
 
-Large stadiums often face gate bottlenecks, duplicate ticket scans, and weak rerouting visibility.
-EventPulse addresses this with:
-- Smart QR ticket generation and scan validation
-- Live crowd-density status per gate
-- AI-assisted reroute alerts using Gemini
-- Interactive gate visualization with Google Maps
+- Live Cloud Run URL: https://eventpulse-353593433214.asia-south1.run.app/
+- GitHub Repository: https://github.com/Gopal-MD/EventPulse
+- LinkedIn Project Post: https://www.linkedin.com/posts/gopal-m-4008a8249_buildwithai-promptwarsvirtual-share-7449340610353737728-P5Bb
+
+## Problem Statement
+
+Large stadiums often face gate bottlenecks, duplicate ticket scans, and poor rerouting visibility.
+EventPulse solves this using a lightweight smart-stadium flow:
+
+- Smart QR ticket generation and validation
+- Live gate crowd monitoring
+- AI reroute suggestions (Gemini)
+- Interactive map-based gate visualization (Google Maps)
 
 ## Core Features
 
-- Smart QR Ticketing with deterministic gate assignment (A-F, G-L, M-R, S-Z)
-- Duplicate scan prevention
-- Live control dashboard with food queue recommendations
-- Interactive map with gate markers
-- Gemini structured-output alert generation with fallback mode
+- Deterministic gate assignment from attendee name ranges (A-F, G-L, M-R, S-Z)
+- Duplicate scan prevention with persistent check-in flag
+- AI-assisted alert generation with structured JSON response parsing
+- Cloud-function-style validation and fallback alert helpers
+- Real-time state dashboard and food queue recommendation
 
-## Architecture Diagram (Text)
+## Architecture
 
 ```text
                +------------------------------+
@@ -31,8 +38,8 @@ EventPulse addresses this with:
                                |
                      +---------+---------+
                      | Firebase Realtime |
-                     |  tickets/gates    |
-                     |  queues/alerts    |
+                     | tickets/gates     |
+                     | queues/alerts     |
                      +-------------------+
                                |
 +------------------------------+-------------------------------+
@@ -49,41 +56,46 @@ EventPulse addresses this with:
 ## Google Services Integration
 
 ### Firebase
-Used for real-time persistence and state synchronization:
+Used for real-time persistence and sync of:
 - users
 - tickets
 - gates
 - foodQueues
 - alerts
 
-### Google Cloud Functions (Integration Points)
-Cloud-function-style handlers are mapped in:
-- `backend/cloud-functions/mockFunctions.js`
-
-Responsibilities:
-- QR validation logic (`validateQrScanCloudFn`)
-- Alert payload triggering (`buildAlertCloudFn`)
+### Gemini
+Model used: `gemini-1.5-flash`
+- Generates crowd reroute instructions
+- Uses structured-output response schema
+- Falls back to deterministic logic when API key is missing or request fails
 
 ### Google Maps
-Map is rendered with `@googlemaps/js-api-loader`:
-- Interactive stadium map UI
-- Gate marker overlays
-- Fallback status banner when map is unavailable or key is missing
+Map SDK: `@googlemaps/js-api-loader`
+- Interactive stadium map and gate markers
+- Runtime key loading through backend `/api/config`
+- Graceful fallback if key is unavailable
 
-### Gemini
-Gemini model (`gemini-1.5-flash`) is used for alert generation:
-- Structured JSON output with schema validation
-- Deterministic fallback alerts if Gemini key is missing or request fails
+### Cloud-Functions-Style Integration Points
+Mapped in: `backend/cloud-functions/mockFunctions.js`
+- `validateQrScanCloudFn`
+- `buildAlertCloudFn`
 
-See integration map:
-- `config/google-services.integration.json`
+Details file: `config/google-services.integration.json`
 
-## Testing
+## Security & Reliability
 
-### Lightweight evaluator-friendly tests
-A no-framework mock test suite is included in root `tests` folder.
+- API rate-limiting for `/api/*`
+- Input validation for ticket generation and scanning
+- Duplicate scan prevention
+- QR token HMAC hashing
+- Consistent error responses
+- CI pipeline runs tests and build on push/PR
+- Coverage generated for backend and frontend
 
-Files:
+## Testing (Submission Friendly)
+
+### 1) Lightweight tests folder
+Included for evaluator-friendly quick validation:
 - `tests/test_cases.md`
 - `tests/mock-test-runner.js`
 - `tests/test_execution.log`
@@ -97,94 +109,78 @@ Run:
 npm run test:mock
 ```
 
-### How to run all tests (judge quick start)
+### 2) Automated backend integration tests
+Covers API contracts including:
+- `/api/health`
+- `/` root 200 check
+- `/api/config` maps key load
+- ticket generation lifecycle
+- duplicate scan blocking
+- simulation and state contracts
+- end-to-end smoke flow (`generate -> scan -> state`)
 
-From project root, use:
+Run:
 
 ```bash
-# 1) Run only the tests/ folder mock runner
-npm run test:mock
-
-# 2) Run backend integration tests
 npm run test:integration --prefix backend
-
-# 3) Run frontend tests
-npm test --prefix frontend
-
-# 4) Run everything together (mock + integration + frontend)
-npm test
-
-# 5) Run CI-equivalent flow (tests + build)
-npm run ci
 ```
 
-### Existing automated tests
-- Backend Vitest + Supertest
-- Frontend Vitest
+### 3) Frontend automated tests
+Run:
 
-Run full automated checks:
+```bash
+npm test --prefix frontend
+```
+
+### 4) Full project checks
 
 ```bash
 npm test
 ```
 
-## Security Considerations
+### 5) CI-equivalent reliability gate (tests + build + coverage)
 
-- Rate limiting for all `/api` routes
-- Input validation on ticket generation and scan endpoints
-- Duplicate scan prevention through `checkedIn` state lock
-- QR token hashing for generated ticket records using HMAC-SHA256
-- Centralized error response helper for consistent API failures
-
-## AI Decision Logic
-
-Detailed logic is documented in:
-- `docs/ai-logic.md`
-
-Summary:
-
-```text
-IF crowd_level > threshold:
-  trigger alert
-  suggest alternate gate
+```bash
+npm run reliability
 ```
 
-The system first applies deterministic thresholds, then optionally enriches alerts via Gemini.
+## Local Setup
 
-## Efficiency Optimizations
+### Prerequisites
 
-- 1-second backend state cache for repeated dashboard polls
-- Frontend polling skips hidden tabs to reduce unnecessary API calls
-- Polling guards prevent overlapping fetch calls
-- Lightweight static mock datasets for evaluation runs
+- Node.js 18+
+- npm
 
-## Accessibility Notes
+### Install
 
-- Labeled form inputs and controls in ticket and scanner flows
-- ARIA roles and live regions for alerts and scanner results
-- Keyboard-friendly controls for primary workflows
-- Readable text contrast in map/dashboard alerts
+```bash
+cd backend
+npm install
 
-## Sample Outputs
-
-Mock test log:
-
-```text
-[PASS] QR generated successfully
-[PASS] Duplicate entry blocked
-[PASS] Alert triggered when crowd > threshold
-[PASS] Gate assignment logic validated
+cd ../frontend
+npm install
 ```
 
-Example API behaviors:
+### Run locally
 
-```text
-POST /api/ticket/generate  -> success: true, ticketId: TKT-XXXXXXX
-POST /api/ticket/scan      -> blocks duplicate entries
-GET  /api/state            -> gates, alerts, foodQueues, tickets
+Terminal 1:
+
+```bash
+cd backend
+node server.js
 ```
 
-## Environment Variables (Google Cloud Run)
+Terminal 2:
+
+```bash
+cd frontend
+npm run dev
+```
+
+App: http://localhost:5173/
+API health: http://localhost:8080/api/health
+
+## Environment Variables (Cloud Run)
 
 ```bash
 GEMINI_API_KEY=<key>
@@ -192,14 +188,13 @@ FIREBASE_PROJECT_ID=<id>
 FIREBASE_CLIENT_EMAIL=<email>
 FIREBASE_PRIVATE_KEY=<private_key_with_escaped_newlines>
 FIREBASE_DATABASE_URL=<firebase_db_url>
-VITE_MAPS_API_KEY=<maps_key>
+MAPS_API_KEY=<google_maps_key_runtime>
 QR_TOKEN_SECRET=<optional_strong_secret>
-MAPS_API_KEY=<maps_key_runtime_for_cloud_run>
 ```
 
-Note:
-- In Cloud Run, `MAPS_API_KEY` is preferred because the frontend is prebuilt and served statically.
-- `VITE_MAPS_API_KEY` is still supported for local/build-time injection.
+Notes:
+- For Cloud Run, `MAPS_API_KEY` is preferred (runtime).
+- `VITE_MAPS_API_KEY` can still be used for local build-time scenarios.
 
 ## Deployment
 
@@ -207,7 +202,7 @@ Note:
 gcloud run deploy eventpulse \
   --source . \
   --region asia-south1 \
-  --set-env-vars GEMINI_API_KEY=<key>,FIREBASE_PROJECT_ID=<id>,FIREBASE_CLIENT_EMAIL=<email>,FIREBASE_PRIVATE_KEY=<private_key>,FIREBASE_DATABASE_URL=<url>,VITE_MAPS_API_KEY=<key>,QR_TOKEN_SECRET=<secret>
+  --set-env-vars GEMINI_API_KEY=<key>,FIREBASE_PROJECT_ID=<id>,FIREBASE_CLIENT_EMAIL=<email>,FIREBASE_PRIVATE_KEY=<private_key>,FIREBASE_DATABASE_URL=<url>,MAPS_API_KEY=<maps_key>,QR_TOKEN_SECRET=<secret>
 ```
 
 ## Project Structure
@@ -218,6 +213,19 @@ frontend/
 tests/
 docs/
 config/
+.github/workflows/
+```
+
+## AI Logic
+
+Detailed explanation: `docs/ai-logic.md`
+
+Rule summary:
+
+```text
+IF crowd_level > threshold:
+  trigger alert
+  suggest alternate gate
 ```
 
 ## Author

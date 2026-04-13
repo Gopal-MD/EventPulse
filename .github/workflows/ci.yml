@@ -37,8 +37,26 @@ jobs:
       - name: Run backend integration tests
         run: npm run test:integration --prefix backend
 
+      - name: Run backend coverage
+        run: npm run coverage --prefix backend
+
       - name: Run frontend tests
         run: npm test --prefix frontend
 
+      - name: Run frontend coverage
+        run: npm run coverage --prefix frontend
+
       - name: Build frontend
         run: npm run build --prefix frontend
+
+      - name: Upload backend coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage
+
+      - name: Upload frontend coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
