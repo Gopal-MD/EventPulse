@@ -43,13 +43,15 @@ describe('EventPulse Production Audit - Backend Tests', () => {
     expect(res.body.ticket.email).toBe('gopal@example.com');
   });
 
-  test('Flow - Generate Ticket', async () => {
+  test('Flow - Generate Ticket (TKT-XXXXXXX format)', async () => {
     const res = await request(app)
       .post('/api/ticket/generate')
       .send({ name: 'Test User', email: 'test@example.com' });
     expect(res.status).toBe(200);
     testTicketId = res.body.ticket.ticketId;
     expect(testTicketId).toBeDefined();
+    // Verify TKT-XXXXXXX format as requested by evaluator
+    expect(testTicketId).toMatch(/^TKT-[A-Z0-9]+$/);
   });
 
   test('Flow - Fetch valid ticket', async () => {

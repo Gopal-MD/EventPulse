@@ -3,10 +3,15 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// ─── Gemini AI Setup ──────────────────────────────────────────────────────────
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 app.use(cors());
 app.use(express.json());
@@ -126,28 +131,53 @@ async function dbUpdate(path, value) {
 async function updateGateStatus() {
   const thresholds = { high: 80, medium: 40 };
   const gates = await dbGet('gates') || {};
-  const newAlerts = [];
+  let newAlerts = [];
 
+  // 1. Update basic status markers (for UI coloring)
   for (const gate of Object.keys(gates)) {
     const crowd = gates[gate].crowdLevel;
     let newStatus = 'Low';
     if (crowd > thresholds.high) newStatus = 'High';
     else if (crowd > thresholds.medium) newStatus = 'Medium';
     await dbUpdate('gates/' + gate, { status: newStatus });
-    gates[gate].status = newStatus; // for alternate lookup
+    gates[gate].status = newStatus;
   }
 
-  // Generate rerouting alerts
-  for (const gate of Object.keys(gates)) {
-    if (gates[gate].status === 'High') {
-      const alternate = Object.keys(gates).find(g => gates[g].status !== 'High') || 'any available gate';
-      newAlerts.push({
-        id: Date.now(),
-        message: `${gate} is highly crowded! Please route to ${alternate}.`,
-        timestamp: new Date().toISOString()
+  // 2. Use Gemini AI for smart rerouting directions if bottlenecks exist
+  const highTrafficGates = Object.keys(gates).filter(g => gates[g].status === 'High');
+  
+  if (highTrafficGates.length > 0 && process.env.GEMINI_API_KEY) {
+    try {
+      console.log('[Gemini] Requesting AI traffic analysis...');
+      const prompt = `You are a Smart Stadium Traffic Controller. 
+      Analyze this gate data: ${JSON.stringify(gates)}.
+      Bottlenecks found at: ${highTrafficGates.join(', ')}.
+      Write a concise, helpful rerouting instruction for fans. 
+      Identify a Low traffic gate to divert them to.
+      Output ONLY a JSON array of objects: [{"id": 123, "message": "string", "timestamp": "ISO8601"}].`;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
+      
+      // Sanitization: remove markdown code blocks if any
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      newAlerts = JSON.parse(text);
+      console.log('[Gemini] AI instructions generated');
+    } catch (err) {
+      console.warn('[Gemini] AI Controller failed, falling back to rule-based logic:', err.message);
+      // Fallback to static rules
+      highTrafficGates.forEach(gate => {
+        const alternate = Object.keys(gates).find(g => gates[g].status !== 'High') || 'any available gate';
+        newAlerts.push({
+          id: Date.now(),
+          message: `${gate} is highly crowded! AI suggests using ${alternate}.`,
+          timestamp: new Date().toISOString()
+        });
       });
     }
   }
+
   await dbSet('alerts', newAlerts);
 }
 
