@@ -1,5 +1,7 @@
 # EventPulse - AI Smart Stadium System
 
+[![CI](https://github.com/Gopal-MD/EventPulse/actions/workflows/ci.yml/badge.svg)](https://github.com/Gopal-MD/EventPulse/actions/workflows/ci.yml)
+
 PromptWars Hackathon Submission (Google Cloud Program Aligned)
 
 ## Problem Statement Alignment
