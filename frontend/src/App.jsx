@@ -9,12 +9,12 @@ function Nav() {
   const isActive = (path) => loc.pathname === path ? 'active' : '';
 
   return (
-    <nav>
-      <div className="brand">EventPulse</div>
-      <Link to="/" className={isActive('/')}>Ticket</Link>
-      <Link to="/scan" className={isActive('/scan')}>Scanner</Link>
-      <Link to="/nav" className={isActive('/nav')}>Map</Link>
-      <Link to="/dashboard" className={isActive('/dashboard')}>Dashboard</Link>
+    <nav role="navigation" aria-label="Main navigation">
+      <div className="brand" aria-label="EventPulse Home">EventPulse 🏟️</div>
+      <Link to="/" className={isActive('/')} aria-label="Book Ticket" aria-current={loc.pathname === '/' ? 'page' : undefined}>🎫 Ticket</Link>
+      <Link to="/scan" className={isActive('/scan')} aria-label="Entry Scanner" aria-current={loc.pathname === '/scan' ? 'page' : undefined}>📷 Scanner</Link>
+      <Link to="/nav" className={isActive('/nav')} aria-label="Stadium Map" aria-current={loc.pathname === '/nav' ? 'page' : undefined}>🗺️ Map</Link>
+      <Link to="/dashboard" className={isActive('/dashboard')} aria-label="Admin Dashboard" aria-current={loc.pathname === '/dashboard' ? 'page' : undefined}>📊 Dashboard</Link>
     </nav>
   );
 }

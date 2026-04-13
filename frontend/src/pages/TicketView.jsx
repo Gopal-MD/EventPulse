@@ -30,70 +30,79 @@ export default function TicketView() {
   };
 
   return (
-    <div className="container" style={{ maxWidth: '600px' }}>
-      <h2 className="mb-4">Get Your Smart Ticket</h2>
-      
+    <main className="container" style={{ maxWidth: '600px' }} aria-label="Smart Ticket Booking">
+      <h1 className="mb-4" style={{ fontSize: '1.6rem' }}>Get Your Smart Ticket</h1>
+
       {!ticket ? (
-        <div className="glass-panel">
-          <form onSubmit={generateTicket}>
+        <section className="glass-panel" aria-labelledby="ticket-form-heading">
+          <h2 id="ticket-form-heading" className="text-muted mb-4" style={{ fontSize: '1rem', fontWeight: 400 }}>
+            Enter your details to receive a gate-assigned QR pass
+          </h2>
+          <form onSubmit={generateTicket} noValidate>
             <div>
-              <label>Full Name</label>
-              <input 
-                type="text" 
-                placeholder="John Doe" 
-                required 
+              <label htmlFor="full-name">Full Name</label>
+              <input
+                id="full-name"
+                type="text"
+                placeholder="e.g. Gopal MD"
+                required
+                autoComplete="name"
+                aria-required="true"
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
               />
             </div>
             <div>
-              <label>Email ID</label>
-              <input 
-                type="email" 
-                placeholder="john@example.com" 
+              <label htmlFor="email">Email Address</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="gopal@example.com"
                 required
+                autoComplete="email"
+                aria-required="true"
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
               />
             </div>
-            <button className="btn-primary" type="submit" disabled={loading}>
-              {loading ? 'Generating...' : 'Generate Smart Ticket'}
+            <button className="btn-primary" type="submit" disabled={loading} aria-busy={loading}>
+              {loading ? 'Generating...' : '🎫 Generate Smart Ticket'}
             </button>
           </form>
-        </div>
+        </section>
       ) : (
-        <div className="glass-panel ticket-card">
-          <h3 className="mb-2">Ticket Generated successfully!</h3>
-          <p className="text-muted mb-4">Your personalized entry pass.</p>
-          
-          <div className="qr-wrapper">
+        <section className="glass-panel ticket-card" aria-label="Your Ticket" aria-live="polite">
+          <h2 className="mb-2">✅ Ticket Confirmed!</h2>
+          <p className="text-muted mb-4">Show this QR code at your assigned gate.</p>
+
+          <div className="qr-wrapper" role="img" aria-label={`QR Code for ticket ${ticket.ticketId}`}>
             <QRCodeSVG value={ticket.ticketId} size={200} />
           </div>
-          
-          <div className="grid text-left" style={{textAlign: 'left', gridTemplateColumns: '1fr 1fr'}}>
+
+          <dl className="grid text-left" style={{ textAlign: 'left', gridTemplateColumns: '1fr 1fr' }}>
             <div>
-              <small className="text-muted">Name</small>
-              <p><strong>{ticket.name}</strong></p>
+              <dt><small className="text-muted">Name</small></dt>
+              <dd><strong>{ticket.name}</strong></dd>
             </div>
             <div>
-              <small className="text-muted">Ticket ID</small>
-              <p><strong>{ticket.ticketId}</strong></p>
+              <dt><small className="text-muted">Ticket ID</small></dt>
+              <dd><strong>{ticket.ticketId}</strong></dd>
             </div>
             <div>
-              <small className="text-muted">Assigned Gate</small>
-              <p><strong style={{color: 'var(--warning)'}}>{ticket.gate}</strong></p>
+              <dt><small className="text-muted">Assigned Gate</small></dt>
+              <dd><strong style={{ color: 'var(--warning)' }}>{ticket.gate}</strong></dd>
             </div>
             <div>
-              <small className="text-muted">Seat No.</small>
-              <p><strong>{ticket.seatNumber}</strong></p>
+              <dt><small className="text-muted">Seat No.</small></dt>
+              <dd><strong>{ticket.seatNumber}</strong></dd>
             </div>
-          </div>
-          
-          <button className="btn-secondary mt-4" onClick={() => setTicket(null)} style={{width: '100%'}}>
-            Generate Another
+          </dl>
+
+          <button className="btn-secondary mt-4" onClick={() => setTicket(null)} style={{ width: '100%' }} aria-label="Book another ticket">
+            Generate Another Ticket
           </button>
-        </div>
+        </section>
       )}
-    </div>
+    </main>
   );
 }
