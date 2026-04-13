@@ -1,36 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const admin = require('firebase-admin');
-require('dotenv').config();
-
-// Initialize Firebase Admin SDK
-// Supports two modes:
-//   1. Local dev: reads firebase-key.json if it exists
-//   2. Cloud Run: reads individual env vars injected via Cloud Run secrets
-let firebaseCredential;
-const keyPath = path.join(__dirname, 'firebase-key.json');
 const fs = require('fs');
-
-if (fs.existsSync(keyPath)) {
-  // Local development — use the JSON key file
-  const serviceAccount = require('./firebase-key.json');
-  firebaseCredential = admin.credential.cert(serviceAccount);
-} else {
-  // Cloud Run — use environment variables
-  firebaseCredential = admin.credential.cert({
-    projectId:   process.env.FIREBASE_PROJECT_ID,
-    privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-  });
-}
-
-admin.initializeApp({
-  credential: firebaseCredential,
-  databaseURL: process.env.FIREBASE_DATABASE_URL ||
-    "https://promptwars-events-default-rtdb.asia-southeast1.firebasedatabase.app"
-});
-const fireDb = admin.database();
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -38,100 +10,123 @@ const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
 
-// Initialize default state if missing
-async function initializeDb() {
-  const gatesRef = fireDb.ref('gates');
-  const snap = await gatesRef.once('value');
-  if (!snap.exists()) {
-    await gatesRef.set({
-      'Gate 1': { crowdLevel: 0, status: 'Low' },
-      'Gate 2': { crowdLevel: 0, status: 'Low' },
-      'Gate 3': { crowdLevel: 0, status: 'Low' },
-      'Gate 4': { crowdLevel: 0, status: 'Low' }
+// ─── In-memory fallback store (used if Firebase is unavailable) ───────────────
+let memDb = {
+  tickets: {},
+  gates: {
+    'Gate 1': { crowdLevel: 0, status: 'Low' },
+    'Gate 2': { crowdLevel: 0, status: 'Low' },
+    'Gate 3': { crowdLevel: 0, status: 'Low' },
+    'Gate 4': { crowdLevel: 0, status: 'Low' }
+  },
+  alerts: [],
+  foodQueues: [
+    { id: 1, name: 'Burger Queen', waitTime: 5 },
+    { id: 2, name: 'Nacho King', waitTime: 12 },
+    { id: 3, name: 'Pizza Planet', waitTime: 25 },
+    { id: 4, name: 'Vegan Bytes', waitTime: 3 }
+  ]
+};
+
+// ─── Firebase Setup (optional — falls back to memDb on any error) ─────────────
+let fireDb = null;
+
+try {
+  const admin = require('firebase-admin');
+  const keyPath = path.join(__dirname, 'firebase-key.json');
+  let credential;
+
+  if (fs.existsSync(keyPath)) {
+    // Local dev — use JSON file
+    credential = admin.credential.cert(require('./firebase-key.json'));
+    console.log('[Firebase] Using firebase-key.json');
+  } else if (process.env.FIREBASE_PRIVATE_KEY) {
+    // Cloud Run — use env vars
+    credential = admin.credential.cert({
+      projectId:   process.env.FIREBASE_PROJECT_ID,
+      privateKey:  process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
     });
-    await fireDb.ref('foodQueues').set([
-      { id: 1, name: 'Burger Queen', waitTime: 5 },
-      { id: 2, name: 'Nacho King', waitTime: 12 },
-      { id: 3, name: 'Pizza Planet', waitTime: 25 },
-      { id: 4, name: 'Vegan Bytes', waitTime: 3 }
-    ]);
-    await fireDb.ref('alerts').set([]);
+    console.log('[Firebase] Using environment variables');
+  } else {
+    throw new Error('No Firebase credentials found — using in-memory store');
+  }
+
+  admin.initializeApp({
+    credential,
+    databaseURL: process.env.FIREBASE_DATABASE_URL ||
+      'https://promptwars-events-default-rtdb.asia-southeast1.firebasedatabase.app'
+  });
+
+  fireDb = admin.database();
+  console.log('[Firebase] Realtime Database connected');
+
+  // Seed default data on first run
+  fireDb.ref('gates').once('value').then(snap => {
+    if (!snap.exists()) {
+      fireDb.ref('gates').set(memDb.gates);
+      fireDb.ref('foodQueues').set(memDb.foodQueues);
+      fireDb.ref('alerts').set([]);
+      console.log('[Firebase] Seeded default data');
+    }
+  });
+
+} catch (err) {
+  console.warn('[Firebase] Init failed — running with in-memory store:', err.message);
+  fireDb = null;
+}
+
+// ─── Database helpers (abstract over Firebase vs memDb) ───────────────────────
+async function dbGet(path) {
+  if (fireDb) {
+    const snap = await fireDb.ref(path).once('value');
+    return snap.val();
+  }
+  // Navigate memDb path e.g. 'tickets/TKT-ABC'
+  return path.split('/').reduce((obj, key) => obj?.[key], memDb) ?? null;
+}
+
+async function dbSet(path, value) {
+  if (fireDb) {
+    await fireDb.ref(path).set(value);
+  } else {
+    const keys = path.split('/');
+    const last = keys.pop();
+    const target = keys.reduce((obj, key) => {
+      if (!obj[key]) obj[key] = {};
+      return obj[key];
+    }, memDb);
+    target[last] = value;
   }
 }
-initializeDb();
 
-// API ROUTES
-
-app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
-
-// 1. Smart QR Ticket System
-app.post('/api/ticket/generate', async (req, res) => {
-  const { name, email } = req.body;
-  if (!name || !email) return res.status(400).json({ error: 'Name and email required' });
-
-  const firstLetter = name.trim().charAt(0).toUpperCase();
-  let gate = 'Gate 4';
-  if (firstLetter >= 'A' && firstLetter <= 'F') gate = 'Gate 1';
-  else if (firstLetter >= 'G' && firstLetter <= 'L') gate = 'Gate 2';
-  else if (firstLetter >= 'M' && firstLetter <= 'R') gate = 'Gate 3';
-
-  const ticketId = `TKT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-  const seatNumber = `S-${Math.floor(Math.random() * 500) + 1}`;
-
-  const ticketData = { ticketId, name, email, gate, seatNumber, checkedIn: false, generatedAt: Date.now() };
-  
-  await fireDb.ref('tickets/' + ticketId).set(ticketData);
-  res.json({ success: true, ticket: ticketData });
-});
-
-app.get('/api/ticket/:ticketId', async (req, res) => {
-  const snap = await fireDb.ref('tickets/' + req.params.ticketId).once('value');
-  if (!snap.exists()) return res.status(404).json({ error: 'Ticket not found' });
-  res.json({ success: true, ticket: snap.val() });
-});
-
-// 2. Entry Validation System
-app.post('/api/ticket/scan', async (req, res) => {
-  const { ticketId } = req.body;
-  const ticketRef = fireDb.ref('tickets/' + ticketId);
-  const snap = await ticketRef.once('value');
-  
-  if (!snap.exists()) return res.status(404).json({ error: 'Ticket not found' });
-  
-  const ticket = snap.val();
-  if (ticket.checkedIn) return res.status(400).json({ error: 'Duplicate entry detected. Already checked in.' });
-
-  ticket.checkedIn = true;
-  await ticketRef.set(ticket);
-
-  // Increment crowd counter
-  const gateRef = fireDb.ref('gates/' + ticket.gate);
-  const gateSnap = await gateRef.once('value');
-  if (gateSnap.exists()) {
-    const gateData = gateSnap.val();
-    await gateRef.update({ crowdLevel: gateData.crowdLevel + 1 });
-    await updateGateStatus();
+async function dbUpdate(path, value) {
+  if (fireDb) {
+    await fireDb.ref(path).update(value);
+  } else {
+    const existing = await dbGet(path) || {};
+    await dbSet(path, { ...existing, ...value });
   }
+}
 
-  res.json({ success: true, ticket, message: 'Valid entry' });
-});
-
-// 3. Live Crowd & Alert System Simulation
+// ─── AI Rule Engine ───────────────────────────────────────────────────────────
 async function updateGateStatus() {
   const thresholds = { high: 80, medium: 40 };
-  const gatesSnap = await fireDb.ref('gates').once('value');
-  const gates = gatesSnap.val();
-  let newAlerts = [];
+  const gates = await dbGet('gates') || {};
+  const newAlerts = [];
 
-  for (let gate of Object.keys(gates)) {
-    let crowd = gates[gate].crowdLevel;
+  for (const gate of Object.keys(gates)) {
+    const crowd = gates[gate].crowdLevel;
     let newStatus = 'Low';
     if (crowd > thresholds.high) newStatus = 'High';
     else if (crowd > thresholds.medium) newStatus = 'Medium';
-    
-    await fireDb.ref('gates/' + gate).update({ status: newStatus });
+    await dbUpdate('gates/' + gate, { status: newStatus });
+    gates[gate].status = newStatus; // for alternate lookup
+  }
 
-    if (newStatus === 'High') {
+  // Generate rerouting alerts
+  for (const gate of Object.keys(gates)) {
+    if (gates[gate].status === 'High') {
       const alternate = Object.keys(gates).find(g => gates[g].status !== 'High') || 'any available gate';
       newAlerts.push({
         id: Date.now(),
@@ -140,49 +135,118 @@ async function updateGateStatus() {
       });
     }
   }
-  await fireDb.ref('alerts').set(newAlerts);
+  await dbSet('alerts', newAlerts);
 }
 
-// Endpoint for Dashboard & Live Nav
+// ─── API Routes ───────────────────────────────────────────────────────────────
+
+app.get('/api/health', (req, res) =>
+  res.json({ status: 'ok', firebase: !!fireDb, mode: fireDb ? 'firebase' : 'memory' })
+);
+
+// 1. Smart QR Ticket System
+app.post('/api/ticket/generate', async (req, res) => {
+  try {
+    const { name, email } = req.body;
+    if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+
+    const firstLetter = name.trim().charAt(0).toUpperCase();
+    let gate = 'Gate 4';
+    if (firstLetter >= 'A' && firstLetter <= 'F') gate = 'Gate 1';
+    else if (firstLetter >= 'G' && firstLetter <= 'L') gate = 'Gate 2';
+    else if (firstLetter >= 'M' && firstLetter <= 'R') gate = 'Gate 3';
+
+    const ticketId = `TKT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    const seatNumber = `S-${Math.floor(Math.random() * 500) + 1}`;
+    const ticketData = { ticketId, name, email, gate, seatNumber, checkedIn: false, generatedAt: Date.now() };
+
+    await dbSet('tickets/' + ticketId, ticketData);
+    res.json({ success: true, ticket: ticketData });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to generate ticket' });
+  }
+});
+
+// 2. Get ticket by ID
+app.get('/api/ticket/:ticketId', async (req, res) => {
+  try {
+    const ticket = await dbGet('tickets/' + req.params.ticketId);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    res.json({ success: true, ticket });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch ticket' });
+  }
+});
+
+// 3. Entry Validation — duplicate prevention
+app.post('/api/ticket/scan', async (req, res) => {
+  try {
+    const { ticketId } = req.body;
+    const ticket = await dbGet('tickets/' + ticketId);
+    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    if (ticket.checkedIn) return res.status(400).json({ error: 'Duplicate entry detected. Already checked in.' });
+
+    ticket.checkedIn = true;
+    await dbSet('tickets/' + ticketId, ticket);
+
+    const gateData = await dbGet('gates/' + ticket.gate);
+    if (gateData) {
+      await dbUpdate('gates/' + ticket.gate, { crowdLevel: gateData.crowdLevel + 1 });
+      await updateGateStatus();
+    }
+    res.json({ success: true, ticket, message: 'Valid entry' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Scan failed' });
+  }
+});
+
+// 4. Live state (Dashboard + Map polling)
 app.get('/api/state', async (req, res) => {
-  const snap = await fireDb.ref('/').once('value');
-  const dbVal = snap.val() || {};
-  res.json({
-    gates: dbVal.gates || {},
-    alerts: dbVal.alerts || [],
-    foodQueues: dbVal.foodQueues || [],
-    tickets: dbVal.tickets || {}
-  });
+  try {
+    const [gates, alerts, foodQueues, tickets] = await Promise.all([
+      dbGet('gates'), dbGet('alerts'), dbGet('foodQueues'), dbGet('tickets')
+    ]);
+    res.json({
+      gates:      gates      || memDb.gates,
+      alerts:     alerts     || [],
+      foodQueues: foodQueues || memDb.foodQueues,
+      tickets:    tickets    || {}
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'State fetch failed' });
+  }
 });
 
-// Endpoint to force simulate crowd for testing
+// 5. Force crowd simulation (testing)
 app.post('/api/simulate', async (req, res) => {
-  const gatesSnap = await fireDb.ref('gates').once('value');
-  if (gatesSnap.exists()) {
-    const gates = gatesSnap.val();
-    for (let gate of Object.keys(gates)) {
-      await fireDb.ref('gates/' + gate).update({ crowdLevel: Math.floor(Math.random() * 100) });
+  try {
+    const gates = await dbGet('gates') || memDb.gates;
+    for (const gate of Object.keys(gates)) {
+      await dbUpdate('gates/' + gate, { crowdLevel: Math.floor(Math.random() * 100) });
     }
-  }
-  const foodSnap = await fireDb.ref('foodQueues').once('value');
-  if (foodSnap.exists()) {
-    const queues = foodSnap.val();
+    const queues = await dbGet('foodQueues') || memDb.foodQueues;
     for (let i = 0; i < queues.length; i++) {
-        await fireDb.ref(`foodQueues/${i}`).update({ waitTime: Math.floor(Math.random() * 30) });
+      await dbUpdate('foodQueues/' + i, { waitTime: Math.floor(Math.random() * 30) });
     }
+    await updateGateStatus();
+    const state = await dbGet('/') || memDb;
+    res.json({ success: true, message: 'Simulated crowd data', state });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Simulation failed' });
   }
-  
-  await updateGateStatus();
-  const fullSnap = await fireDb.ref('/').once('value');
-  res.json({ success: true, message: 'Simulated new crowd data', state: fullSnap.val() });
 });
 
-// Serve React Frontend (For Cloud Run)
+// ─── Serve React Frontend ─────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
+// ─── Start Server — ALWAYS binds to PORT regardless of Firebase status ────────
 app.listen(PORT, () => {
-  console.log(`Server is running with Firebase DB on port ${PORT}`);
+  console.log(`[EventPulse] Server listening on port ${PORT}`);
+  console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
 });
