@@ -31,7 +31,8 @@ export default function ScannerInterface() {
         { 
           highlightScanRegion: true, 
           highlightCodeOutline: true,
-          maxScansPerSecond: 60,
+          preferredCamera: 'user', // Better for laptop webcams (MateBook D 16)
+          maxScansPerSecond: 15, // Reduced from 60 to prevent blurry mid-frame scans on 720p 
           returnDetailedScanResult: true
         }
       );
@@ -83,8 +84,11 @@ export default function ScannerInterface() {
         <p className="text-muted mb-4">Validate QR Code via Camera or Ticket ID</p>
         
         {isScanning ? (
-          <div style={{ position: 'relative', width: '100%', maxWidth: '400px', margin: '0 auto', borderRadius: '12px', overflow: 'hidden' }}>
-            <video ref={videoRef} style={{ width: '100%' }}></video>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '500px', margin: '0 auto', borderRadius: '12px', overflow: 'hidden' }}>
+            <p className="text-warning mb-2" style={{ fontSize: '0.85rem' }}>
+              For 720p HD cameras (MateBook D 16), keep the QR code 6-8 inches away and hold steady.
+            </p>
+            <video ref={videoRef} style={{ width: '100%', transform: 'scaleX(-1)' }}></video>
             <button className="btn-secondary mt-3" onClick={stopScanner}>Cancel Scan</button>
           </div>
         ) : (

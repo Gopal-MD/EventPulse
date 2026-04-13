@@ -1,8 +1,84 @@
 import { useState, useEffect } from 'react';
-import { Navigation } from 'lucide-react'; // AR Bonus icon
+import { Navigation, MapPin, Users } from 'lucide-react';
+
+// Famous Indian Cricket Grounds with real stadium coordinates
+const INDIAN_STADIUMS = [
+  {
+    name: 'Wankhede Stadium',
+    city: 'Mumbai',
+    lat: 18.9388,
+    lng: 72.8254,
+    capacity: '33,108',
+    gates: {
+      'Gate 1': { top: '8%', left: '50%' },
+      'Gate 2': { top: '50%', left: '92%' },
+      'Gate 3': { top: '90%', left: '50%' },
+      'Gate 4': { top: '50%', left: '8%' }
+    }
+  },
+  {
+    name: 'Eden Gardens',
+    city: 'Kolkata',
+    lat: 22.5645,
+    lng: 88.3433,
+    capacity: '68,000',
+    gates: {
+      'Gate 1': { top: '8%', left: '40%' },
+      'Gate 2': { top: '40%', left: '92%' },
+      'Gate 3': { top: '92%', left: '60%' },
+      'Gate 4': { top: '60%', left: '8%' }
+    }
+  },
+  {
+    name: 'M. Chinnaswamy Stadium',
+    city: 'Bengaluru',
+    lat: 12.9789,
+    lng: 77.5998,
+    capacity: '38,000',
+    gates: {
+      'Gate 1': { top: '8%', left: '50%' },
+      'Gate 2': { top: '50%', left: '92%' },
+      'Gate 3': { top: '90%', left: '50%' },
+      'Gate 4': { top: '50%', left: '8%' }
+    }
+  },
+  {
+    name: 'Narendra Modi Stadium',
+    city: 'Ahmedabad',
+    lat: 23.0900,
+    lng: 72.0856,
+    capacity: '1,32,000',
+    gates: {
+      'Gate 1': { top: '5%', left: '50%' },
+      'Gate 2': { top: '50%', left: '95%' },
+      'Gate 3': { top: '93%', left: '50%' },
+      'Gate 4': { top: '50%', left: '5%' }
+    }
+  },
+  {
+    name: 'MA Chidambaram Stadium',
+    city: 'Chennai',
+    lat: 13.0627,
+    lng: 80.2791,
+    capacity: '50,000',
+    gates: {
+      'Gate 1': { top: '8%', left: '48%' },
+      'Gate 2': { top: '48%', left: '92%' },
+      'Gate 3': { top: '90%', left: '52%' },
+      'Gate 4': { top: '52%', left: '8%' }
+    }
+  }
+];
+
+const MAPS_KEY = import.meta.env.VITE_MAPS_API_KEY;
 
 export default function LiveNavigation() {
   const [data, setData] = useState(null);
+  const [selectedIdx, setSelectedIdx] = useState(0);
+
+  const stadium = INDIAN_STADIUMS[selectedIdx];
+
+  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${stadium.lat},${stadium.lng}&zoom=17&size=900x480&maptype=satellite&key=${MAPS_KEY}`;
 
   const fetchState = async () => {
     try {
@@ -20,98 +96,175 @@ export default function LiveNavigation() {
     return () => clearInterval(interval);
   }, []);
 
-  // Simplified Map Layout Mapping
-  const mapLayout = {
-    'Gate 1': { top: '10%', left: '50%' },
-    'Gate 2': { top: '50%', left: '90%' },
-    'Gate 3': { top: '90%', left: '50%' },
-    'Gate 4': { top: '50%', left: '10%' }
-  };
-
   // Find lowest wait time stall
   let bestStall = null;
   if (data?.foodQueues) {
     bestStall = data.foodQueues.reduce((prev, curr) => prev.waitTime < curr.waitTime ? prev : curr);
   }
 
+  const gateLayout = stadium.gates;
+
   return (
     <div className="container">
-      <h2>Live Stadium Overview</h2>
-      <p className="text-muted mb-4">Real-time gate and facility coordination.</p>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+        <div>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <MapPin size={28} style={{ color: 'var(--accent-primary)' }} />
+            Live Stadium Map
+          </h2>
+          <p className="text-muted" style={{ marginTop: '4px' }}>
+            {stadium.name} · {stadium.city} · Capacity: {stadium.capacity}
+          </p>
+        </div>
+        {/* Stadium Selector */}
+        <select
+          value={selectedIdx}
+          onChange={e => setSelectedIdx(Number(e.target.value))}
+          style={{ width: 'auto', marginBottom: 0, padding: '10px 16px', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--panel-border)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
+        >
+          {INDIAN_STADIUMS.map((s, i) => (
+            <option key={i} value={i} style={{ background: '#0b0f19' }}>
+              {s.name}, {s.city}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      {/* Bonus: Simple AR-like directional arrows simulated as a banner UI */}
+      {/* AR Alert Banner */}
       {data?.alerts && data.alerts.length > 0 && (
-        <div className="glass-panel text-center" style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid var(--accent-primary)', marginBottom: '20px' }}>
-          <h3 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-             <Navigation size={24} className="ar-pulse" /> Mock AR Directions active
-          </h3>
-          <p>{data.alerts[0].message}</p>
+        <div className="glass-panel" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--danger)', marginBottom: '20px', padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <Navigation size={22} style={{ color: 'var(--danger)', flexShrink: 0 }} />
+            <div>
+              <strong style={{ color: 'var(--danger)' }}>Smart AR Reroute Alert</strong>
+              <p style={{ marginTop: '4px', color: '#fca5a5' }}>{data.alerts[0].message}</p>
+            </div>
+          </div>
         </div>
       )}
 
-      <div className="map-container" style={{
-        backgroundImage: `url('https://maps.googleapis.com/maps/api/staticmap?center=53.4631,-2.2913&zoom=17&size=800x450&maptype=satellite&key=${import.meta.env.VITE_MAPS_API_KEY}')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundColor: '#1E293B',
+      {/* Satellite Map with Gate Overlays */}
+      <div style={{
         position: 'relative',
-        height: '450px',
-        borderRadius: '12px',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        overflow: 'hidden'
+        width: '100%',
+        height: '480px',
+        borderRadius: '16px',
+        overflow: 'hidden',
+        border: '1px solid var(--panel-border)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)'
       }}>
-        {/* Placeholder Stadium Map */}
+        {/* Real Google Satellite Map */}
+        <img
+          src={mapUrl}
+          alt={`${stadium.name} Satellite View`}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
 
+        {/* Dark overlay for better dot visibility */}
+        <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.25)' }} />
+
+        {/* Stadium Name Watermark */}
+        <div style={{
+          position: 'absolute', bottom: '14px', left: '16px',
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)',
+          borderRadius: '8px', padding: '6px 14px',
+          color: 'white', fontSize: '0.85rem', fontWeight: 600
+        }}>
+          📍 {stadium.name}, {stadium.city}
+        </div>
+
+        {/* Powered by Google */}
+        <div style={{
+          position: 'absolute', bottom: '14px', right: '16px',
+          background: 'rgba(0,0,0,0.5)', borderRadius: '6px', padding: '4px 10px',
+          fontSize: '0.7rem', color: 'rgba(255,255,255,0.7)'
+        }}>
+          Powered by Google Maps
+        </div>
+
+        {/* Gate Dots Overlay */}
         {data && Object.keys(data.gates).map(gate => {
           const info = data.gates[gate];
-          let color = 'var(--success)';
-          if (info.status === 'Medium') color = 'var(--warning)';
-          if (info.status === 'High') color = 'var(--danger)';
+          const pos = gateLayout[gate];
+          if (!pos) return null;
+
+          let color = '#10b981'; // green
+          if (info.status === 'Medium') color = '#f59e0b';
+          if (info.status === 'High') color = '#ef4444';
 
           return (
-             <div key={gate} className="gate-dot" style={{
-               top: mapLayout[gate].top,
-               left: mapLayout[gate].left,
-               background: color,
-               boxShadow: `0 0 15px ${color}, 0 0 30px ${color}`,
-               position: 'absolute',
-               width: '24px',
-               height: '24px',
-               borderRadius: '50%',
-               transform: 'translate(-50%, -50%)',
-               display: 'flex',
-               alignItems: 'center',
-               justifyContent: 'center',
-               color: '#fff',
-               fontSize: '10px',
-               fontWeight: 'bold',
-               animation: info.status === 'High' ? 'blink 1s infinite' : 'pulse 2s infinite'
-             }}>
-               {gate.split(' ')[1]}
-             </div>
+            <div key={gate} style={{
+              position: 'absolute',
+              top: pos.top,
+              left: pos.left,
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              zIndex: 10
+            }}>
+              {/* Pulsing outer ring */}
+              <div style={{
+                width: '40px', height: '40px', borderRadius: '50%',
+                background: `${color}33`,
+                border: `2px solid ${color}`,
+                boxShadow: `0 0 20px ${color}`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                animation: info.status === 'High' ? 'blink 0.8s infinite' : 'none'
+              }}>
+                <Users size={16} color={color} />
+              </div>
+              {/* Gate Label */}
+              <div style={{
+                background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(4px)',
+                borderRadius: '6px', padding: '2px 8px',
+                fontSize: '0.7rem', fontWeight: 'bold', color: color,
+                whiteSpace: 'nowrap'
+              }}>
+                {gate} · {info.status}
+              </div>
+            </div>
           );
         })}
       </div>
 
+      {/* Gate Status Cards + Best Stall */}
       <div className="grid mt-4">
+        {/* Gate Status */}
         <div className="glass-panel">
-          <h3>Map Legend</h3>
-          <ul style={{ listStyle: 'none', marginTop: '10px' }}>
-            <li><span style={{ color: 'var(--success)' }}>●</span> Low Crowd</li>
-            <li><span style={{ color: 'var(--warning)' }}>●</span> Medium Crowd</li>
-            <li><span style={{ color: 'var(--danger)' }}>●</span> High Crowd (Avoid)</li>
+          <h3 style={{ marginBottom: '16px' }}>Gate Status</h3>
+          {data && Object.keys(data.gates).map(gate => {
+            const info = data.gates[gate];
+            return (
+              <div key={gate} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', borderBottom: '1px solid var(--panel-border)', paddingBottom: '10px' }}>
+                <span style={{ fontWeight: 600 }}>{gate}</span>
+                <span className={`badge ${info.status.toLowerCase()}`}>{info.status}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Map Legend */}
+        <div className="glass-panel">
+          <h3 style={{ marginBottom: '16px' }}>Legend</h3>
+          <ul style={{ listStyle: 'none', lineHeight: '2' }}>
+            <li><span style={{ color: '#10b981', fontSize: '1.4rem' }}>●</span> Low — Enter freely</li>
+            <li><span style={{ color: '#f59e0b', fontSize: '1.4rem' }}>●</span> Medium — Minor delay</li>
+            <li><span style={{ color: '#ef4444', fontSize: '1.4rem' }}>●</span> High — Avoid! Use alternate</li>
           </ul>
         </div>
-        
+
+        {/* Best Food Stall */}
         {bestStall && (
           <div className="glass-panel" style={{ borderLeft: '4px solid var(--success)' }}>
-             <h3>⚡ Quickest Bite</h3>
-             <p className="mt-4" style={{ fontSize: '1.2rem' }}><strong>{bestStall.name}</strong></p>
-             <p className="text-muted">Wait time: only {bestStall.waitTime} mins!</p>
+            <h3>⚡ Quickest Food Stall</h3>
+            <p style={{ fontSize: '1.2rem', marginTop: '12px' }}><strong>{bestStall.name}</strong></p>
+            <p className="text-muted">Only {bestStall.waitTime} min wait right now!</p>
           </div>
         )}
       </div>
-
     </div>
   );
 }
