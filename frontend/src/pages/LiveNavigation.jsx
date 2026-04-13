@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Navigation, MapPin, Users } from 'lucide-react';
-import { Loader } from '@googlemaps/js-api-loader';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 
 // Famous Indian Cricket Grounds with real stadium coordinates
 const INDIAN_STADIUMS = [
@@ -77,30 +77,52 @@ export default function LiveNavigation() {
   const [data, setData] = useState(null);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [map, setMap] = useState(null);
+  const [mapError, setMapError] = useState('');
   const mapRef = useRef(null);
   const markersRef = useRef({});
+  const fetchInFlight = useRef(false);
 
   const stadium = INDIAN_STADIUMS[selectedIdx];
 
   // Initialize Map
   useEffect(() => {
-    const loader = new Loader({
-      apiKey: MAPS_KEY,
-      version: 'weekly',
-      libraries: ['marker']
-    });
+    if (!MAPS_KEY) {
+      setMapError('Google Maps key is missing. Showing live status without map tiles.');
+      return;
+    }
 
-    loader.load().then((google) => {
-      const newMap = new google.maps.Map(mapRef.current, {
-        center: { lat: stadium.lat, lng: stadium.lng },
-        zoom: 17,
-        mapTypeId: 'satellite',
-        disableDefaultUI: true,
-        zoomControl: true,
-        mapId: 'DEMO_MAP_ID' // Required for AdvancedMarkerElement
-      });
-      setMap(newMap);
-    });
+    let mounted = true;
+
+    async function initMap() {
+      try {
+        setOptions({ apiKey: MAPS_KEY, version: 'weekly' });
+        const { Map } = await importLibrary('maps');
+        await importLibrary('marker');
+
+        if (!mounted || !mapRef.current) return;
+
+        const newMap = new Map(mapRef.current, {
+          center: { lat: stadium.lat, lng: stadium.lng },
+          zoom: 17,
+          mapTypeId: 'satellite',
+          disableDefaultUI: true,
+          zoomControl: true,
+          mapId: 'DEMO_MAP_ID'
+        });
+
+        setMap(newMap);
+        setMapError('');
+      } catch (err) {
+        console.error('[MapLoader]', err);
+        setMapError('Map unavailable right now. Live gate data is still active.');
+      }
+    }
+
+    initMap();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   // Sync Map center when stadium changes
@@ -136,12 +158,15 @@ export default function LiveNavigation() {
           <div class="marker-label" style="color: ${color}">${gate}</div>
         `;
 
-        markersRef.current[gate] = new google.maps.marker.AdvancedMarkerElement({
-          map,
-          position: stadium.gateCoords[gate],
-          title: gate,
-          content: markerElement
-        });
+        const AdvancedMarker = google?.maps?.marker?.AdvancedMarkerElement;
+        if (AdvancedMarker) {
+          markersRef.current[gate] = new AdvancedMarker({
+            map,
+            position: stadium.gateCoords[gate],
+            title: gate,
+            content: markerElement
+          });
+        }
       } else {
         // Update existing marker color/position
         markersRef.current[gate].position = stadium.gateCoords[gate];
@@ -157,12 +182,17 @@ export default function LiveNavigation() {
   }, [data, map, stadium]);
 
   const fetchState = async () => {
+    if (fetchInFlight.current) return;
+    if (document.hidden) return;
+    fetchInFlight.current = true;
     try {
       const res = await fetch('/api/state');
       const state = await res.json();
       setData(state);
     } catch (err) {
       console.error(err);
+    } finally {
+      fetchInFlight.current = false;
     }
   };
 
@@ -238,6 +268,12 @@ export default function LiveNavigation() {
               <p style={{ marginTop: '4px', color: '#fca5a5' }}>{data.alerts[0].message}</p>
             </div>
           </div>
+        </section>
+      )}
+
+      {mapError && (
+        <section className="glass-panel" role="status" aria-live="polite" style={{ marginBottom: '12px', border: '1px solid var(--warning)' }}>
+          <p style={{ color: 'var(--warning)', margin: 0 }}>{mapError}</p>
         </section>
       )}
 

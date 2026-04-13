@@ -1,81 +1,197 @@
-# 🏟️ EventPulse — AI-Powered Smart Stadium System
+# EventPulse - AI Smart Stadium System
 
-> **PromptWars Hackathon Submission** · Vertical: **Physical Event Experience**
+PromptWars Hackathon Submission (Google Cloud Program Aligned)
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-Google%20Cloud%20Run-4285F4?logo=google-cloud)](https://github.com/Gopal-MD/EventPulse)
-[![Testing](https://img.shields.io/badge/Tests-100%25%20Root%20Pass-success?logo=jest)](https://github.com/Gopal-MD/EventPulse)
-[![AI Controller](https://img.shields.io/badge/AI-Google%20Gemini%201.5%20Flash-blue?logo=google-gemini)](https://ai.google.dev/)
-[![Firebase](https://img.shields.io/badge/Database-Firebase%20Realtime%20DB-FFCA28?logo=firebase)](https://firebase.google.com/)
-[![Google Maps](https://img.shields.io/badge/Maps-Interactive%20JS%20SDK-34A853?logo=google-maps)](https://developers.google.com/maps)
+## Problem Statement Alignment
 
----
+Large stadiums often face gate bottlenecks, duplicate ticket scans, and weak rerouting visibility.
+EventPulse addresses this with:
+- Smart QR ticket generation and scan validation
+- Live crowd-density status per gate
+- AI-assisted reroute alerts using Gemini
+- Interactive gate visualization with Google Maps
 
-## 📌 Chosen Vertical — Physical Event Experience
+## Core Features
 
-Large sporting venues suffer from chaotic crowd movement and bottlenecks. **EventPulse** addresses this with a cloud-native coordindation layer powered by **Google Gemini AI** and **Firebase**.
+- Smart QR Ticketing with deterministic gate assignment (A-F, G-L, M-R, S-Z)
+- Duplicate scan prevention
+- Live control dashboard with food queue recommendations
+- Interactive map with gate markers
+- Gemini structured-output alert generation with fallback mode
 
----
+## Architecture Diagram (Text)
 
-## 🧠 Approach & Logic
-
-### 🤖 Smart AI Traffic Controller (Powered by Gemini)
-Unlike static systems, EventPulse uses **Google Gemini 1.5 Flash** to act as the primary routing engine.
-- **Dynamic Analysis**: The backend feeds real-time gate density and food stall wait times to Gemini.
-- **Generative Alerts**: Gemini analyzes the bottlenecks and generates human-like, context-aware rerouting instructions (e.g. *"Gate 1 is at 85% capacity. Our AI suggests diverting to Gate 4—which is currently at 12%—to save you approximately 15 minutes of entry time."*).
-- **Resilient Fallback**: If the AI model is unavailable, the system automatically falls back to a deterministic rule-based heuristic.
-
-### 🎫 Smart QR Ticketing (TKT-XXXXXXX format)
-Deterministic gate assignment based on alphabetical load-balancing:
+```text
+               +------------------------------+
+               |        Google Cloud Run      |
+               |  Node.js Express Backend     |
+               +---------------+--------------+
+                               |
+                     +---------+---------+
+                     | Firebase Realtime |
+                     |  tickets/gates    |
+                     |  queues/alerts    |
+                     +-------------------+
+                               |
++------------------------------+-------------------------------+
+|                      React + Vite Frontend                   |
+| Ticket View | Scanner | Dashboard | Live Navigation Map      |
++------------------------------+-------------------------------+
+                               |
+                     +---------+---------+
+                     | Google Maps JS API|
+                     | Gemini 1.5 Flash  |
+                     +-------------------+
 ```
-A–F  →  Gate 1   |   G–L  →  Gate 2   |   M–R  →  Gate 3   |   S–Z  →  Gate 4
+
+## Google Services Integration
+
+### Firebase
+Used for real-time persistence and state synchronization:
+- users
+- tickets
+- gates
+- foodQueues
+- alerts
+
+### Google Cloud Functions (Integration Points)
+Cloud-function-style handlers are mapped in:
+- `backend/cloud-functions/mockFunctions.js`
+
+Responsibilities:
+- QR validation logic (`validateQrScanCloudFn`)
+- Alert payload triggering (`buildAlertCloudFn`)
+
+### Google Maps
+Map is rendered with `@googlemaps/js-api-loader`:
+- Interactive stadium map UI
+- Gate marker overlays
+- Fallback status banner when map is unavailable or key is missing
+
+### Gemini
+Gemini model (`gemini-1.5-flash`) is used for alert generation:
+- Structured JSON output with schema validation
+- Deterministic fallback alerts if Gemini key is missing or request fails
+
+See integration map:
+- `config/google-services.integration.json`
+
+## Testing
+
+### Lightweight evaluator-friendly tests
+A no-framework mock test suite is included in root `tests` folder.
+
+Files:
+- `tests/test_cases.md`
+- `tests/mock-test-runner.js`
+- `tests/test_execution.log`
+- `tests/data/users.json`
+- `tests/data/tickets.json`
+- `tests/data/crowd.json`
+
+Run:
+
+```bash
+npm run test:mock
 ```
-Each ticket is strictly validated against the `TKT-[A-Z0-9]{7}` pattern and locked to a single `checkedIn` flag in Firebase to prevent duplication.
 
----
+### Existing automated tests
+- Backend Vitest + Supertest
+- Frontend Vitest
 
-## ✅ How the Solution Works
+Run full automated checks:
 
-1. **Identity & Check-in**: User books a ticket; Gemini assigns the optimal gate.
-2. **Scan & Sync**: Coordinators scan QR codes; state is instantly synced to Firebase.
-3. **AI Surveillance**: As gates fill up, the **Gemini AI Controller** triggers dynamic reroute instructions.
-4. **Live Visualization**: Fans see an **Interactive Google Map** with pulsing markers and AI alert banners.
-
----
-
-## ☁️ Google Services Integration
-
-| Service | Contribution to Score |
-|---|---|
-| **Google Gemini 1.5 Flash** | Dynamic, generative rerouting logic and bottleneck analysis. |
-| **Google Maps JS SDK** | High-performance interactive mapping with satellite street-view. |
-| **Firebase Realtime DB** | Sub-second state synchronization across thousands of concurrent clients. |
-| **Google Cloud Run** | Scalable, containerized deployment with multi-package test verification. |
-
----
-
-## 🧪 Testing Suite (100% Root-Level Pass)
-
-Evaluators can verify project stability by running a single command from the root:
 ```bash
 npm test
 ```
-- **Backend**: Multi-step lifecycle tests + **TKT-XXXXXXX Regex Validation**.
-- **Frontend**: Vitest unit tests for gate assignment and UI consistency.
 
----
+## Security Considerations
 
-## 🚀 Deployment
+- Rate limiting for all `/api` routes
+- Input validation on ticket generation and scan endpoints
+- Duplicate scan prevention through `checkedIn` state lock
+- QR token hashing for generated ticket records using HMAC-SHA256
+- Centralized error response helper for consistent API failures
+
+## AI Decision Logic
+
+Detailed logic is documented in:
+- `docs/ai-logic.md`
+
+Summary:
+
+```text
+IF crowd_level > threshold:
+  trigger alert
+  suggest alternate gate
+```
+
+The system first applies deterministic thresholds, then optionally enriches alerts via Gemini.
+
+## Efficiency Optimizations
+
+- 1-second backend state cache for repeated dashboard polls
+- Frontend polling skips hidden tabs to reduce unnecessary API calls
+- Polling guards prevent overlapping fetch calls
+- Lightweight static mock datasets for evaluation runs
+
+## Accessibility Notes
+
+- Labeled form inputs and controls in ticket and scanner flows
+- ARIA roles and live regions for alerts and scanner results
+- Keyboard-friendly controls for primary workflows
+- Readable text contrast in map/dashboard alerts
+
+## Sample Outputs
+
+Mock test log:
+
+```text
+[PASS] QR generated successfully
+[PASS] Duplicate entry blocked
+[PASS] Alert triggered when crowd > threshold
+[PASS] Gate assignment logic validated
+```
+
+Example API behaviors:
+
+```text
+POST /api/ticket/generate  -> success: true, ticketId: TKT-XXXXXXX
+POST /api/ticket/scan      -> blocks duplicate entries
+GET  /api/state            -> gates, alerts, foodQueues, tickets
+```
+
+## Environment Variables (Google Cloud Run)
+
+```bash
+GEMINI_API_KEY=<key>
+FIREBASE_PROJECT_ID=<id>
+FIREBASE_CLIENT_EMAIL=<email>
+FIREBASE_PRIVATE_KEY=<private_key_with_escaped_newlines>
+FIREBASE_DATABASE_URL=<firebase_db_url>
+VITE_MAPS_API_KEY=<maps_key>
+QR_TOKEN_SECRET=<optional_strong_secret>
+```
+
+## Deployment
 
 ```bash
 gcloud run deploy eventpulse \
   --source . \
   --region asia-south1 \
-  --set-env-vars GEMINI_API_KEY=<your_key> \
-  --set-env-vars VITE_MAPS_API_KEY=<your_key>
+  --set-env-vars GEMINI_API_KEY=<key>,FIREBASE_PROJECT_ID=<id>,FIREBASE_CLIENT_EMAIL=<email>,FIREBASE_PRIVATE_KEY=<private_key>,FIREBASE_DATABASE_URL=<url>,VITE_MAPS_API_KEY=<key>,QR_TOKEN_SECRET=<secret>
 ```
 
----
+## Project Structure
 
-## 👤 Author
+```text
+backend/
+frontend/
+tests/
+docs/
+config/
+```
 
-**Gopal MD** · [github.com/Gopal-MD/EventPulse](https://github.com/Gopal-MD/EventPulse)
+## Author
+
+Gopal MD

@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npm test --prefix backend && npm test --prefix frontend"
+    "test": "npm test --prefix backend && npm test --prefix frontend",
+    "test:mock": "node tests/mock-test-runner.js",
+    "coverage": "npm run coverage --prefix backend && npm run coverage --prefix frontend"
   },
   "keywords": [],
   "author": "",

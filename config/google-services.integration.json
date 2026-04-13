@@ -1,0 +1,22 @@
+{
+  "firebase": {
+    "usedFor": ["users", "tickets", "gates", "foodQueues", "alerts"],
+    "mode": "realtime-database",
+    "env": ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY", "FIREBASE_DATABASE_URL"]
+  },
+  "googleCloudFunctions": {
+    "qrValidation": "backend/cloud-functions/mockFunctions.js#validateQrScanCloudFn",
+    "alertTriggering": "backend/cloud-functions/mockFunctions.js#buildAlertCloudFn",
+    "note": "Local mock implementation mirrors Cloud Functions integration points"
+  },
+  "googleMaps": {
+    "sdk": "@googlemaps/js-api-loader",
+    "env": ["VITE_MAPS_API_KEY"],
+    "usedFor": ["stadium map", "gate markers", "seat/gate direction context"]
+  },
+  "gemini": {
+    "model": "gemini-1.5-flash",
+    "env": ["GEMINI_API_KEY"],
+    "mode": "structured-output-with-fallback"
+  }
+}

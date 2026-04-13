@@ -1,0 +1,16 @@
+[
+  {
+    "ticketId": "TKT-TEST001",
+    "userId": "U-001",
+    "gate": "Gate 1",
+    "seatNumber": "S-101",
+    "checkedIn": false
+  },
+  {
+    "ticketId": "TKT-TEST002",
+    "userId": "U-002",
+    "gate": "Gate 2",
+    "seatNumber": "S-220",
+    "checkedIn": true
+  }
+]

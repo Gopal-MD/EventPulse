@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
  * Dashboard — Admin Live Control Center
@@ -10,8 +10,11 @@ export default function Dashboard() {
   const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
   const [simBusy, setSimBusy] = useState(false);
+  const fetchInFlight = useRef(false);
 
   const fetchState = useCallback(async () => {
+    if (fetchInFlight.current || document.hidden) return;
+    fetchInFlight.current = true;
     try {
       const res   = await fetch('/api/state');
       const state = await res.json();
@@ -20,6 +23,7 @@ export default function Dashboard() {
       console.error('[Dashboard] Fetch error:', err);
     } finally {
       setLoading(false);
+      fetchInFlight.current = false;
     }
   }, []);
 

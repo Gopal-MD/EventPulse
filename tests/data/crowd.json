@@ -1,0 +1,9 @@
+{
+  "gates": {
+    "Gate 1": { "crowdLevel": 85, "status": "High" },
+    "Gate 2": { "crowdLevel": 30, "status": "Low" },
+    "Gate 3": { "crowdLevel": 45, "status": "Medium" },
+    "Gate 4": { "crowdLevel": 20, "status": "Low" }
+  },
+  "thresholds": { "high": 80, "medium": 40 }
+}

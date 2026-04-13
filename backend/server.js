@@ -2,14 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { validateQrScanCloudFn, buildAlertCloudFn } = require('./cloud-functions/mockFunctions');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 // ─── Gemini AI Setup ──────────────────────────────────────────────────────────
+const { SchemaType } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
@@ -127,6 +130,21 @@ async function dbUpdate(path, value) {
   }
 }
 
+function createQrToken(ticketId, generatedAt) {
+  const secret = process.env.QR_TOKEN_SECRET || 'eventpulse-dev-secret';
+  const payload = `${ticketId}:${generatedAt}`;
+  return crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+}
+
+function sendError(res, status, message) {
+  return res.status(status).json({ error: message });
+}
+
+const stateCache = {
+  at: 0,
+  data: null,
+};
+
 // ─── AI Rule Engine ───────────────────────────────────────────────────────────
 async function updateGateStatus() {
   const thresholds = { high: 80, medium: 40 };
@@ -148,34 +166,62 @@ async function updateGateStatus() {
   
   if (highTrafficGates.length > 0 && process.env.GEMINI_API_KEY) {
     try {
-      console.log('[Gemini] Requesting AI traffic analysis...');
+      console.log('[Gemini] Requesting AI traffic analysis with Structured Output...');
       const prompt = `You are a Smart Stadium Traffic Controller. 
       Analyze this gate data: ${JSON.stringify(gates)}.
       Bottlenecks found at: ${highTrafficGates.join(', ')}.
       Write a concise, helpful rerouting instruction for fans. 
-      Identify a Low traffic gate to divert them to.
-      Output ONLY a JSON array of objects: [{"id": 123, "message": "string", "timestamp": "ISO8601"}].`;
+      Identify a Low traffic gate to divert them to.`;
+      
+      const responseSchema = {
+        type: SchemaType.ARRAY,
+        description: "List of alert messages for crowd rerouting",
+        items: {
+          type: SchemaType.OBJECT,
+          properties: {
+            id: {
+              type: SchemaType.NUMBER,
+              description: "Unique timestamp ID",
+            },
+            message: {
+              type: SchemaType.STRING,
+              description: "The concisely worded rerouting message",
+            },
+            timestamp: {
+              type: SchemaType.STRING,
+              description: "ISO8601 timestamp of generated alert",
+            }
+          },
+          required: ["id", "message", "timestamp"],
+        },
+      };
 
-      const result = await model.generateContent(prompt);
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema,
+        },
+      });
       const response = await result.response;
       let text = response.text();
       
-      // Sanitization: remove markdown code blocks if any
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
       newAlerts = JSON.parse(text);
-      console.log('[Gemini] AI instructions generated');
+      console.log('[Gemini] AI instructions successfully generated and validated.');
     } catch (err) {
-      console.warn('[Gemini] AI Controller failed, falling back to rule-based logic:', err.message);
+      console.warn('[Gemini] AI Controller failed (API error or rate limit), falling back to observable rule-based logic:', err.message);
       // Fallback to static rules
       highTrafficGates.forEach(gate => {
-        const alternate = Object.keys(gates).find(g => gates[g].status !== 'High') || 'any available gate';
-        newAlerts.push({
-          id: Date.now(),
-          message: `${gate} is highly crowded! AI suggests using ${alternate}.`,
-          timestamp: new Date().toISOString()
-        });
+        const alternate = Object.keys(gates).find(g => gates[g].status === 'Low') || 'any available gate';
+        newAlerts.push(buildAlertCloudFn({ gate, alternate }));
       });
     }
+  } else if (highTrafficGates.length > 0) {
+      console.log('[Gemini] GEMINI_API_KEY clearly missing. Using deterministic observable fallback logic.');
+      highTrafficGates.forEach(gate => {
+        const alternate = Object.keys(gates).find(g => gates[g].status === 'Low') || 'any available gate';
+        newAlerts.push(buildAlertCloudFn({ gate, alternate }));
+      });
   }
 
   await dbSet('alerts', newAlerts);
@@ -191,11 +237,15 @@ app.get('/api/health', (req, res) =>
 app.post('/api/ticket/generate', async (req, res) => {
   try {
     let { name, email } = req.body;
-    if (!name || !email) return res.status(400).json({ error: 'Name and email are required' });
+    if (!name || !email) return sendError(res, 400, 'Name and email are required');
 
     // Basic sanitization
     name = name.trim().substring(0, 100);
     email = email.trim().toLowerCase().substring(0, 100);
+
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return sendError(res, 400, 'Invalid email format');
+    }
 
     const firstLetter = name.trim().charAt(0).toUpperCase();
     let gate = 'Gate 4';
@@ -205,7 +255,9 @@ app.post('/api/ticket/generate', async (req, res) => {
 
     const ticketId = `TKT-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
     const seatNumber = `S-${Math.floor(Math.random() * 500) + 1}`;
-    const ticketData = { ticketId, name, email, gate, seatNumber, checkedIn: false, generatedAt: Date.now() };
+    const generatedAt = Date.now();
+    const qrToken = createQrToken(ticketId, generatedAt);
+    const ticketData = { ticketId, name, email, gate, seatNumber, checkedIn: false, generatedAt, qrToken };
 
     await dbSet('tickets/' + ticketId, ticketData);
     res.json({ success: true, ticket: ticketData });
@@ -229,10 +281,24 @@ app.get('/api/ticket/:ticketId', async (req, res) => {
 // 3. Entry Validation — duplicate prevention
 app.post('/api/ticket/scan', async (req, res) => {
   try {
-    const { ticketId } = req.body;
+    const { ticketId, qrToken } = req.body;
+    if (!ticketId || typeof ticketId !== 'string') {
+      return sendError(res, 400, 'ticketId is required');
+    }
+
     const ticket = await dbGet('tickets/' + ticketId);
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
-    if (ticket.checkedIn) return res.status(400).json({ error: 'Duplicate entry detected. Already checked in.' });
+    if (!ticket) return sendError(res, 404, 'Ticket not found');
+
+    const cloudValidation = validateQrScanCloudFn({
+      ticketId,
+      qrToken,
+      expectedToken: ticket.qrToken,
+    });
+    if (!cloudValidation.ok) {
+      return sendError(res, 400, cloudValidation.reason);
+    }
+
+    if (ticket.checkedIn) return sendError(res, 400, 'Duplicate entry detected. Already checked in.');
 
     ticket.checkedIn = true;
     await dbSet('tickets/' + ticketId, ticket);
@@ -252,17 +318,25 @@ app.post('/api/ticket/scan', async (req, res) => {
 // 4. Live state (Dashboard + Map polling)
 app.get('/api/state', async (req, res) => {
   try {
+    const now = Date.now();
+    if (stateCache.data && now - stateCache.at < 1000) {
+      return res.json(stateCache.data);
+    }
+
     const [gates, alerts, foodQueues, tickets] = await Promise.all([
       dbGet('gates'), dbGet('alerts'), dbGet('foodQueues'), dbGet('tickets')
     ]);
-    res.json({
+    const payload = {
       gates:      gates      || memDb.gates,
       alerts:     alerts     || [],
       foodQueues: foodQueues || memDb.foodQueues,
       tickets:    tickets    || {}
-    });
+    };
+    stateCache.at = now;
+    stateCache.data = payload;
+    res.json(payload);
   } catch (err) {
-    res.status(500).json({ error: 'State fetch failed' });
+    sendError(res, 500, 'State fetch failed');
   }
 });
 
@@ -299,5 +373,7 @@ if (require.main === module) {
     console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
   });
 }
+
+module.exports = app;
 
 module.exports = app;
