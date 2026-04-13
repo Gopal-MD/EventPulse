@@ -7,6 +7,9 @@
     "test": "npm run test:mock && npm test --prefix backend && npm test --prefix frontend",
     "test:mock": "node tests/mock-test-runner.js",
     "test:integration": "npm run test:integration --prefix backend",
+    "test:load": "node tests/load/state-load.js",
+    "test:visual": "playwright test tests/visual/map.visual.spec.js",
+    "quality:extended": "npm run test:load && npm run test:visual",
     "build:frontend": "npm run build --prefix frontend",
     "ci": "npm run test:mock && npm run test:integration && npm test --prefix frontend && npm run build:frontend",
     "reliability": "npm run ci && npm run coverage",
@@ -14,5 +17,9 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "autocannon": "^8.0.0"
+  }
 }

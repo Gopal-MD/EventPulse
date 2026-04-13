@@ -144,6 +144,24 @@ npm test
 npm run reliability
 ```
 
+### 6) Optional extended quality checks (non-blocking)
+
+These are intentionally separated from the default CI gate to keep normal build checks fast.
+
+```bash
+# Lightweight API load test for /api/state stability
+npm run test:load
+
+# Visual regression snapshot test for /nav map experience
+npm run test:visual
+
+# Run both extended checks together
+npm run quality:extended
+```
+
+GitHub Actions also includes an optional workflow:
+- `.github/workflows/extended-quality.yml`
+
 ## Local Setup
 
 ### Prerequisites
