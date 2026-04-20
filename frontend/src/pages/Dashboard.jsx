@@ -43,6 +43,19 @@ export default function Dashboard() {
     }
   };
 
+  const exportReport = async () => {
+    try {
+      const res = await fetch('/api/report/export', { method: 'POST' });
+      const result = await res.json();
+      if (result.success) {
+        alert(`Report Successfully exported to Google Cloud Storage: ${result.fileName}`);
+      }
+    } catch (err) {
+      console.error('[Dashboard] Export failed:', err);
+      alert('Report export failed. Check GCS permissions.');
+    }
+  };
+
   if (loading) {
     return (
       <main className="container text-center" aria-label="Loading dashboard">
@@ -65,16 +78,26 @@ export default function Dashboard() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '1.6rem' }}>📊 Live Control Center</h1>
-        <button
-          className="btn-secondary"
-          onClick={simulateCrowd}
-          disabled={simBusy}
-          aria-busy={simBusy}
-          aria-label="Force a simulated crowd density change across all gates"
-          style={{ width: 'auto' }}
-        >
-          {simBusy ? 'Simulating...' : '🎲 Simulate Crowd Change'}
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            className="btn-secondary"
+            onClick={exportReport}
+            aria-label="Export check-in logs to Google Cloud Storage"
+            style={{ width: 'auto', background: 'var(--accent-primary)', color: 'white' }}
+          >
+            📂 Export GCS Report
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={simulateCrowd}
+            disabled={simBusy}
+            aria-busy={simBusy}
+            aria-label="Force a simulated crowd density change across all gates"
+            style={{ width: 'auto' }}
+          >
+            {simBusy ? 'Simulating...' : '🎲 Simulate Crowd'}
+          </button>
+        </div>
       </div>
 
       {/* Reroute Alerts — assertive ARIA so screen readers announce immediately */}

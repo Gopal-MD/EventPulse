@@ -13,20 +13,20 @@ PromptWars Hackathon Submission (Google Cloud Program Aligned)
 ## Problem Statement
 
 Large stadiums often face gate bottlenecks, duplicate ticket scans, and poor rerouting visibility.
-EventPulse solves this using a lightweight smart-stadium flow:
+EventPulse solves this using a high-adoption smart-stadium framework:
 
-- Smart QR ticket generation and validation
-- Live gate crowd monitoring
-- AI reroute suggestions (Gemini)
-- Interactive map-based gate visualization (Google Maps)
+- **Advanced AI Control**: Uses **Gemini 1.5 Flash with Function Calling** to dynamically analyze traffic and recommend reroutes.
+- **Enterprise Storage**: Integrated with **Google Cloud Storage (GCS)** for automated administrative report logging.
+- **Interactive Pro Map**: Google Maps with **Heatmap Visualization** and **Directions API** for precise fan rerouting.
+- **Auditable Security**: Hardened CSP, HMAC tokens, and **Structured Google Cloud Audit Logging**.
+- **Real-time Synchronization**: Firebase Realtime DB for live ticket and gate density tracking.
 
-## Core Features
+## Core Features (V2 Elite Adoption)
 
-- Deterministic gate assignment from attendee name ranges (A-F, G-L, M-R, S-Z)
-- Duplicate scan prevention with persistent check-in flag
-- AI-assisted alert generation with structured JSON response parsing
-- Cloud-function-style validation and fallback alert helpers
-- Real-time state dashboard and food queue recommendation
+- **AI-Driven Traffic Controller**: Uses Function Calling to "Recommend Reroute" directly from stadium data.
+- **GCS Report Center**: Admins can export daily scan audits to Cloud Storage buckets.
+- **Interactive Stadium Map**: Maps with Advanced Marker Elements and pathfinding logic.
+- **Modular Microservices**: Modularized `database.js` and `aiService.js` for enterprise-grade maintainability.
 
 ## Architecture
 

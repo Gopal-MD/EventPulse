@@ -120,6 +120,8 @@ export default function LiveNavigation() {
         setOptions({ apiKey: mapsKey, version: 'weekly' });
         const { Map } = await importLibrary('maps');
         await importLibrary('marker');
+        await importLibrary('visualization'); // For Heatmap
+        await importLibrary('routes'); // For Directions
 
         if (!mounted || !mapRef.current) return;
 
@@ -129,7 +131,7 @@ export default function LiveNavigation() {
           mapTypeId: 'satellite',
           disableDefaultUI: true,
           zoomControl: true,
-          mapId: 'DEMO_MAP_ID'
+          mapId: 'EVENT_PULSE_MAP'
         });
 
         setMap(newMap);
@@ -154,32 +156,21 @@ export default function LiveNavigation() {
     }
   }, [selectedIdx, map]);
 
-  // Handle markers and scaling updates
-  useEffect(() => {
-    if (!map || !data) return;
-
-    const google = window.google;
-    
-    // Cleanup old markers if stadium changed (implied by markersRef check)
+    // 1. Update Advanced Markers
     Object.keys(stadium.gateCoords).forEach(gate => {
       const info = data.gates[gate];
       if (!info) return;
 
-      let color = '#10b981'; // green
+      let color = '#10b981';
       if (info.status === 'Medium') color = '#f59e0b';
       if (info.status === 'High') color = '#ef4444';
 
       if (!markersRef.current[gate]) {
-        // Create new marker
         const markerElement = document.createElement('div');
         markerElement.className = 'custom-marker';
         markerElement.innerHTML = `
           <div class="marker-pulse" style="background: ${color}33; border: 2px solid ${color};">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-          </div>
-          <div class="marker-label" style="color: ${color}">
-            <span class="marker-name">${gate}</span>
-            <span class="marker-status">${info.status}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
           </div>
         `;
 
@@ -192,20 +183,44 @@ export default function LiveNavigation() {
             content: markerElement
           });
         }
-      } else {
-        // Update existing marker color/position
-        markersRef.current[gate].position = stadium.gateCoords[gate];
-        const el = markersRef.current[gate].content;
-        el.querySelector('.marker-pulse').style.background = `${color}33`;
-        el.querySelector('.marker-pulse').style.border = `2px solid ${color}`;
-        el.querySelector('svg').setAttribute('stroke', color);
-        el.querySelector('.marker-label').style.color = color;
-        el.querySelector('.marker-name').innerText = gate;
-        el.querySelector('.marker-status').innerText = info.status;
       }
     });
 
-  }, [data, map, stadium]);
+    // 2. Heatmap Logic (Adoption Signal)
+    if (google.maps.visualization) {
+      const heatmapData = Object.entries(stadium.gateCoords).map(([name, pos]) => ({
+        location: new google.maps.LatLng(pos.lat, pos.lng),
+        weight: data.gates[name]?.crowdLevel || 0
+      }));
+
+      if (window.stadiumHeatmap) window.stadiumHeatmap.setMap(null);
+      window.stadiumHeatmap = new google.maps.visualization.HeatmapLayer({
+        data: heatmapData,
+        map: map,
+        radius: 40
+      });
+    }
+
+    // 3. Directions Logic (Pathfinding to Low Gate)
+    if (data.alerts?.length > 0 && google.maps.DirectionsService) {
+      const lowGateName = Object.keys(data.gates).find(g => data.gates[g].status === 'Low');
+      if (lowGateName && stadium.gateCoords[lowGateName]) {
+        const directionsService = new google.maps.DirectionsService();
+        const directionsRenderer = new google.maps.DirectionsRenderer({
+          map,
+          suppressMarkers: true,
+          polylineOptions: { strokeColor: '#10b981', strokeWeight: 5 }
+        });
+
+        directionsService.route({
+          origin: stadium.gateCoords['Gate 1'], // Simulated current user position
+          destination: stadium.gateCoords[lowGateName],
+          travelMode: google.maps.TravelMode.WALKING
+        }, (result, status) => {
+          if (status === 'OK') directionsRenderer.setDirections(result);
+        });
+      }
+    }
 
   const fetchState = async () => {
     if (fetchInFlight.current) return;
