@@ -1,15 +1,26 @@
-import { useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import { trackEvent } from '../utils/analytics';
 
+/**
+ * TicketView — Public entry point for stadium fans
+ * Handles smart gate-assigned ticket generation with real-time analytics
+ */
 export default function TicketView() {
   const [formData, setFormData] = useState({ name: '', email: '' });
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
+  /**
+   * Submit ticket generation request to the backend
+   * @param {Event} e 
+   */
   const generateTicket = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError('');
+    
     try {
+      trackEvent('ticket_generation_attempt', { emailHash: btoa(formData.email).substring(0, 8) });
       const res = await fetch('/api/ticket/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -18,12 +29,13 @@ export default function TicketView() {
       const data = await res.json();
       if (data.success) {
         setTicket(data.ticket);
+        trackEvent('ticket_generation_success', { gate: data.ticket.gate });
       } else {
-        alert(data.error);
+        setError(data.error);
       }
     } catch (err) {
-      console.error(err);
-      alert("Failed to generate ticket");
+      console.error('[TicketView]', err);
+      setError('Connection failed. Please check your network.');
     } finally {
       setLoading(false);
     }
@@ -38,6 +50,13 @@ export default function TicketView() {
           <h2 id="ticket-form-heading" className="text-muted mb-4" style={{ fontSize: '1rem', fontWeight: 400 }}>
             Enter your details to receive a gate-assigned QR pass
           </h2>
+
+          {error && (
+            <div role="alert" className="glass-panel" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid var(--danger)', padding: '12px', marginBottom: '20px', color: 'var(--danger)', fontSize: '0.9rem' }}>
+              ⚠️ {error}
+            </div>
+          )}
+
           <form onSubmit={generateTicket} noValidate>
             <div>
               <label htmlFor="full-name">Full Name</label>
