@@ -5,6 +5,8 @@ import ScannerInterface from './pages/ScannerInterface';
 import Dashboard from './pages/Dashboard';
 import LiveNavigation from './pages/LiveNavigation';
 
+import { trackPageview } from './utils/analytics';
+
 function Nav() {
   const loc = useLocation();
   const [highContrast, setHighContrast] = useState(false);
@@ -13,6 +15,10 @@ function Nav() {
   useEffect(() => {
     document.body.classList.toggle('high-contrast', highContrast);
   }, [highContrast]);
+
+  useEffect(() => {
+    trackPageview(loc.pathname);
+  }, [loc.pathname]);
 
   return (
     <nav role="navigation" aria-label="Main navigation">

@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { Navigation, MapPin, Users } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { MapPin, Navigation, Info, Users, AlertCircle } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 
 // Famous Indian Cricket Grounds with real stadium coordinates
@@ -250,6 +251,12 @@ export default function LiveNavigation() {
     const interval = setInterval(fetchState, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (data?.alerts?.length > 0) {
+      trackEvent('ai_reroute_view', { message: data.alerts[0].message });
+    }
+  }, [data?.alerts]);
 
   let bestStall = null;
   if (data?.foodQueues) {

@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import QrScanner from 'qr-scanner';
+import { trackEvent } from '../utils/analytics';
 
 /**
  * ScannerInterface — Coordinator Entry Validation Page
@@ -75,6 +76,9 @@ export default function ScannerInterface() {
       });
       const data = await res.json();
       setScanResult(data);
+      if (data.success) {
+        trackEvent('ticket_scan_success', { ticketId: id.trim(), gate: data.ticket?.gate });
+      }
     } catch (err) {
       console.error('[ProcessScan]', err);
       setScanResult({ error: 'Failed to connect to server. Please retry.' });

@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { LayoutDashboard, Users, AlertCircle, RefreshCw, Download } from 'lucide-react';
+import { trackEvent } from '../utils/analytics';
 
 /**
  * Dashboard — Admin Live Control Center
@@ -36,7 +38,11 @@ export default function Dashboard() {
   const simulateCrowd = async () => {
     setSimBusy(true);
     try {
-      await fetch('/api/simulate', { method: 'POST' });
+      const res = await fetch('/api/simulate', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        trackEvent('admin_simulate_crowd', { timestamp: new Date().toISOString() });
+      }
       await fetchState();
     } finally {
       setSimBusy(false);
@@ -48,6 +54,7 @@ export default function Dashboard() {
       const res = await fetch('/api/report/export', { method: 'POST' });
       const result = await res.json();
       if (result.success) {
+        trackEvent('admin_gcs_export', { fileName: result.fileName });
         alert(`Report Successfully exported to Google Cloud Storage: ${result.fileName}`);
       }
     } catch (err) {
