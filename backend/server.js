@@ -23,7 +23,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://maps.googleapis.com", "https://*.firebaseio.com"],
-      connectSrc: ["'self'", "https://*.googleapis.com", "https://*.firebaseio.com", "https://*.firebasedatabase.app"],
+      connectSrc: ["'self'", "http://localhost:*", "https://*.googleapis.com", "https://*.firebaseio.com", "https://*.firebasedatabase.app"],
       imgSrc: ["'self'", "data:", "https://maps.gstatic.com", "https://*.googleapis.com"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
@@ -38,6 +38,7 @@ app.disable('x-powered-by');
 const allowedOrigins = [
   'https://eventpulse-353593433214.asia-south1.run.app',
   'http://localhost:5173',
+  'http://localhost:5174',
   'http://localhost:8080'
 ];
 

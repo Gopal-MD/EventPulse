@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import TicketView from './pages/TicketView';
 import ScannerInterface from './pages/ScannerInterface';
