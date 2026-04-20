@@ -97,7 +97,7 @@ let memDb = {
 // ─── Database & External Functions ───────────────────────────────────────────
 
 // Database helpers are now in database.js
-const { get: dbGet, set: dbSet, push: dbPush } = db;
+const { get: dbGet, set: dbSet, push: dbPush, update: dbUpdate } = db;
 const { validateQrScanCloudFn, buildAlertCloudFn } = require('./cloud-functions/mockFunctions');
 
 function createQrToken(ticketId, generatedAt) {
@@ -150,7 +150,7 @@ async function updateGateStatus() {
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
 app.get('/api/health', (req, res) =>
-  res.json({ status: 'ok', firebase: !!fireDb, mode: fireDb ? 'firebase' : 'memory' })
+  res.json({ status: 'ok', firebase: db.isFirebase, mode: db.isFirebase ? 'firebase' : 'memory' })
 );
 
 // Runtime config for frontend (Cloud Run envs are available here at runtime)
@@ -309,11 +309,7 @@ app.post('/api/ticket/scan', async (req, res) => {
       timestamp: new Date().toISOString(),
       method: 'QR_SCAN'
     };
-    if (fireDb) {
-      await fireDb.ref('scanHistory').push(scanEntry);
-    } else {
-      await db.push('scanHistory', scanEntry);
-    }
+    await db.push('scanHistory', scanEntry);
 
     logger.info('Entry scan validated', { ticketId, gate: ticket.gate });
     res.json({ success: true, ticket, message: 'Valid entry' });

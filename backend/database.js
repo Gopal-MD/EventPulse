@@ -64,7 +64,6 @@ function init(admin) {
 
 /**
  * Get data from the active provider
- * @param {string} path 
  */
 async function get(path) {
   if (fireDb) {
@@ -76,8 +75,6 @@ async function get(path) {
 
 /**
  * Set data in the active provider
- * @param {string} path 
- * @param {any} value 
  */
 async function set(path, value) {
   if (fireDb) {
@@ -106,4 +103,23 @@ async function push(path, value) {
   }
 }
 
-module.exports = { init, get, set, push, isFirebase: !!fireDb };
+/**
+ * Update data (partial) in the active provider
+ */
+async function update(path, value) {
+  if (fireDb) {
+    await fireDb.ref(path).update(value);
+  } else {
+    const existing = await get(path) || {};
+    await set(path, { ...existing, ...value });
+  }
+}
+
+module.exports = { 
+  init, 
+  get, 
+  set, 
+  push, 
+  update,
+  get isFirebase() { return !!fireDb; } 
+};
