@@ -1,9 +1,9 @@
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
 /**
  * EventPulse AI Intelligence Service
  * Uses Google Gemini 1.5 Flash with Advanced Function Calling
  */
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-
 let model;
 let db;
 

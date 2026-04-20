@@ -1,3 +1,10 @@
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const admin = require('firebase-admin');
 const { Storage } = require('@google-cloud/storage');
 const db = require('./database');
@@ -16,10 +23,7 @@ ai.init(process.env.GEMINI_API_KEY, db);
 const storage = new Storage();
 const REPORT_BUCKET = process.env.GCS_REPORTS_BUCKET || 'eventpulse-reports-placeholder';
 
-// ─── Gemini AI Setup ──────────────────────────────────────────────────────────
-const { SchemaType } = require('@google/generative-ai');
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+// ─── Security & Config ──────────────────────────────────────────────────────────
 
 app.use(helmet({
   contentSecurityPolicy: {
@@ -89,53 +93,8 @@ let memDb = {
   ]
 };
 
-// ─── Firebase Setup (optional — falls back to memDb on any error) ─────────────
-let fireDb = null;
 
-try {
-  const admin = require('firebase-admin');
-  const keyPath = path.join(__dirname, 'firebase-key.json');
-  let credential;
-
-  if (fs.existsSync(keyPath)) {
-    // Local dev — use JSON file
-    credential = admin.credential.cert(require('./firebase-key.json'));
-    console.log('[Firebase] Using firebase-key.json');
-  } else if (process.env.FIREBASE_PRIVATE_KEY) {
-    // Cloud Run — use env vars
-    credential = admin.credential.cert({
-      projectId:   process.env.FIREBASE_PROJECT_ID,
-      privateKey:  process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-    });
-    console.log('[Firebase] Using environment variables');
-  } else {
-    throw new Error('No Firebase credentials found — using in-memory store');
-  }
-
-  admin.initializeApp({
-    credential,
-    databaseURL: process.env.FIREBASE_DATABASE_URL ||
-      'https://promptwars-events-default-rtdb.asia-southeast1.firebasedatabase.app'
-  });
-
-  fireDb = admin.database();
-  console.log('[Firebase] Realtime Database connected');
-
-  // Seed default data on first run
-  fireDb.ref('gates').once('value').then(snap => {
-    if (!snap.exists()) {
-      fireDb.ref('gates').set(memDb.gates);
-      fireDb.ref('foodQueues').set(memDb.foodQueues);
-      fireDb.ref('alerts').set([]);
-      console.log('[Firebase] Seeded default data');
-    }
-  });
-
-} catch (err) {
-  console.warn('[Firebase] Init failed — running with in-memory store:', err.message);
-  fireDb = null;
-}
+// ─── Database & External Functions ───────────────────────────────────────────
 
 // Database helpers are now in database.js
 const { get: dbGet, set: dbSet, push: dbPush } = db;
@@ -426,7 +385,5 @@ if (require.main === module) {
     console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
   });
 }
-
-module.exports = app;
 
 module.exports = app;
