@@ -156,6 +156,13 @@ export default function LiveNavigation() {
     }
   }, [selectedIdx, map]);
 
+  // 3. Handle markers, heatmap, and directions updates
+  useEffect(() => {
+    if (!map || !data) return;
+
+    const google = window.google;
+    if (!google) return;
+    
     // 1. Update Advanced Markers
     Object.keys(stadium.gateCoords).forEach(gate => {
       const info = data.gates[gate];
@@ -221,6 +228,7 @@ export default function LiveNavigation() {
         });
       }
     }
+  }, [data, map, stadium]);
 
   const fetchState = async () => {
     if (fetchInFlight.current) return;
