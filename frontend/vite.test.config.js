@@ -7,5 +7,14 @@ export default defineConfig({
     globals: true,
     environment: 'happy-dom',
     setupFiles: './src/setupTests.js',
+    reporters: ['default', 'junit', 'html'],
+    outputFile: {
+      junit: './junit.xml',
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json-summary', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+    }
   },
 });

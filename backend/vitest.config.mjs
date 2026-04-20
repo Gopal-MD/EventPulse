@@ -2,10 +2,13 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.js'],
+    reporters: ['default', 'junit', 'html'],
+    outputFile: {
+      junit: './junit.xml',
+    },
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json-summary', 'html'],
+      reporter: ['text', 'json-summary', 'html', 'lcov'],
       reportsDirectory: './coverage',
       thresholds: {
         lines: 65,

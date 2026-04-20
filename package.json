@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "npm run test:mock && npm test --prefix backend && npm test --prefix frontend",
+    "dev": "concurrently -k \"npm run dev --prefix frontend\" \"npm run start:test --prefix backend\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run start:test --prefix backend",
+    "test": "npm run test:mock && npm run coverage --prefix backend && npm run coverage --prefix frontend",
     "test:mock": "node tests/mock-test-runner.js",
     "test:integration": "npm run test:integration --prefix backend",
     "test:load": "node tests/load/state-load.js",
@@ -20,6 +23,10 @@
   "license": "ISC",
   "devDependencies": {
     "@playwright/test": "^1.59.1",
-    "autocannon": "^8.0.0"
+    "autocannon": "^8.0.0",
+    "concurrently": "^9.2.1"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2"
   }
 }

@@ -11,10 +11,10 @@ const INDIAN_STADIUMS = [
     lng: 72.8254,
     capacity: '33,108',
     gateCoords: {
-      'Gate 1': { lat: 18.9392, lng: 72.8254 },
-      'Gate 2': { lat: 18.9388, lng: 72.8258 },
-      'Gate 3': { lat: 18.9384, lng: 72.8254 },
-      'Gate 4': { lat: 18.9388, lng: 72.8250 }
+      'Gate 1': { lat: 18.93945, lng: 72.8254 },
+      'Gate 2': { lat: 18.9388, lng: 72.82605 },
+      'Gate 3': { lat: 18.93815, lng: 72.8254 },
+      'Gate 4': { lat: 18.9388, lng: 72.82475 }
     }
   },
   {
@@ -24,10 +24,10 @@ const INDIAN_STADIUMS = [
     lng: 88.3433,
     capacity: '68,000',
     gateCoords: {
-      'Gate 1': { lat: 22.5649, lng: 88.3433 },
-      'Gate 2': { lat: 22.5645, lng: 88.3437 },
-      'Gate 3': { lat: 22.5641, lng: 88.3433 },
-      'Gate 4': { lat: 22.5645, lng: 88.3429 }
+      'Gate 1': { lat: 22.56515, lng: 88.3433 },
+      'Gate 2': { lat: 22.5645, lng: 88.34395 },
+      'Gate 3': { lat: 22.56385, lng: 88.3433 },
+      'Gate 4': { lat: 22.5645, lng: 88.34265 }
     }
   },
   {
@@ -37,10 +37,10 @@ const INDIAN_STADIUMS = [
     lng: 77.5998,
     capacity: '38,000',
     gateCoords: {
-      'Gate 1': { lat: 12.9793, lng: 77.5998 },
-      'Gate 2': { lat: 12.9789, lng: 77.6002 },
-      'Gate 3': { lat: 12.9785, lng: 77.5998 },
-      'Gate 4': { lat: 12.9789, lng: 77.5994 }
+      'Gate 1': { lat: 12.97955, lng: 77.5998 },
+      'Gate 2': { lat: 12.9789, lng: 77.60045 },
+      'Gate 3': { lat: 12.97825, lng: 77.5998 },
+      'Gate 4': { lat: 12.9789, lng: 77.59915 }
     }
   },
   {
@@ -50,10 +50,10 @@ const INDIAN_STADIUMS = [
     lng: 72.5856,
     capacity: '1,32,000',
     gateCoords: {
-      'Gate 1': { lat: 23.0917, lng: 72.5856 },
-      'Gate 2': { lat: 23.0911, lng: 72.5862 },
-      'Gate 3': { lat: 23.0905, lng: 72.5856 },
-      'Gate 4': { lat: 23.0911, lng: 72.5850 }
+      'Gate 1': { lat: 23.09195, lng: 72.5856 },
+      'Gate 2': { lat: 23.0911, lng: 72.58645 },
+      'Gate 3': { lat: 23.09025, lng: 72.5856 },
+      'Gate 4': { lat: 23.0911, lng: 72.58475 }
     }
   },
   {
@@ -63,10 +63,10 @@ const INDIAN_STADIUMS = [
     lng: 80.2791,
     capacity: '50,000',
     gateCoords: {
-      'Gate 1': { lat: 13.0632, lng: 80.2791 },
-      'Gate 2': { lat: 13.0627, lng: 80.2796 },
-      'Gate 3': { lat: 13.0622, lng: 80.2791 },
-      'Gate 4': { lat: 13.0627, lng: 80.2786 }
+      'Gate 1': { lat: 13.06345, lng: 80.2791 },
+      'Gate 2': { lat: 13.0627, lng: 80.27985 },
+      'Gate 3': { lat: 13.06195, lng: 80.2791 },
+      'Gate 4': { lat: 13.0627, lng: 80.27835 }
     }
   }
 ];
@@ -177,7 +177,10 @@ export default function LiveNavigation() {
           <div class="marker-pulse" style="background: ${color}33; border: 2px solid ${color};">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
           </div>
-          <div class="marker-label" style="color: ${color}">${gate}</div>
+          <div class="marker-label" style="color: ${color}">
+            <span class="marker-name">${gate}</span>
+            <span class="marker-status">${info.status}</span>
+          </div>
         `;
 
         const AdvancedMarker = google?.maps?.marker?.AdvancedMarkerElement;
@@ -197,7 +200,8 @@ export default function LiveNavigation() {
         el.querySelector('.marker-pulse').style.border = `2px solid ${color}`;
         el.querySelector('svg').setAttribute('stroke', color);
         el.querySelector('.marker-label').style.color = color;
-        el.querySelector('.marker-label').innerText = `${gate} · ${info.status}`;
+        el.querySelector('.marker-name').innerText = gate;
+        el.querySelector('.marker-status').innerText = info.status;
       }
     });
 
@@ -232,18 +236,38 @@ export default function LiveNavigation() {
   return (
     <main className="container" aria-label="Live Stadium Navigation">
       <style>{`
-        .custom-marker { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .custom-marker {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 3px;
+          transform: translate(-50%, -100%);
+          transform-origin: bottom center;
+          pointer-events: none;
+        }
         .marker-pulse { 
-          width: 40px; height: 40px; border-radius: 50%;
+          width: 34px; height: 34px; border-radius: 50%;
           display: flex; align-items: center; justify-content: center;
           transition: all 0.3s ease;
           box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
         .marker-label {
-          background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);
-          border-radius: 6px; padding: 2px 8px; font-size: 0.7rem;
-          font-weight: bold; white-space: nowrap; pointer-events: none;
+          background: rgba(0,0,0,0.78);
+          backdrop-filter: blur(4px);
+          border-radius: 8px;
+          padding: 4px 10px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          white-space: nowrap;
+          pointer-events: none;
+          text-align: center;
+          line-height: 1.1;
+          min-width: 80px;
+          box-shadow: 0 6px 20px rgba(0,0,0,0.25);
         }
+        .marker-name { display: block; }
+        .marker-status { display: block; font-size: 0.66rem; font-weight: 600; opacity: 0.95; }
       `}</style>
 
       {/* Header */}

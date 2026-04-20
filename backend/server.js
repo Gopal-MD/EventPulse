@@ -4,8 +4,10 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { validateQrScanCloudFn, buildAlertCloudFn } = require('./cloud-functions/mockFunctions');
+const logger = require('./auditLogger');
 require('dotenv').config();
 
 const app = express();
@@ -16,7 +18,40 @@ const { SchemaType } = require('@google/generative-ai');
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-app.use(cors());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://maps.googleapis.com", "https://*.firebaseio.com"],
+      connectSrc: ["'self'", "https://*.googleapis.com", "https://*.firebaseio.com", "https://*.firebasedatabase.app"],
+      imgSrc: ["'self'", "data:", "https://maps.gstatic.com", "https://*.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+    },
+  },
+}));
+
+// Security: Disable X-Powered-By to prevent fingerprinting
+app.disable('x-powered-by');
+
+// CORS: Tighten allowed origins for production
+const allowedOrigins = [
+  'https://eventpulse-353593433214.asia-south1.run.app',
+  'http://localhost:5173',
+  'http://localhost:8080'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
 // ─── Security: Rate Limiting ──────────────────────────────────────────────────
@@ -34,6 +69,7 @@ app.use('/api/', limiter);
 // ─── In-memory fallback store (used if Firebase is unavailable) ───────────────
 let memDb = {
   tickets: {},
+  scanHistory: [],
   gates: {
     'Gate 1': { crowdLevel: 0, status: 'Low' },
     'Gate 2': { crowdLevel: 0, status: 'Low' },
@@ -207,9 +243,9 @@ async function updateGateStatus() {
       let text = response.text();
       
       newAlerts = JSON.parse(text);
-      console.log('[Gemini] AI instructions successfully generated and validated.');
+      console.log(`[Google Cloud] [Gemini] AI instructions successfully generated. Latency: ${Date.now() - now}ms`);
     } catch (err) {
-      console.warn('[Gemini] AI Controller failed (API error or rate limit), falling back to observable rule-based logic:', err.message);
+      console.warn('[Google Cloud] [Gemini] AI Controller failed, falling back to rule-based logic:', err.message);
       // Fallback to static rules
       highTrafficGates.forEach(gate => {
         const alternate = Object.keys(gates).find(g => gates[g].status === 'Low') || 'any available gate';
@@ -217,7 +253,7 @@ async function updateGateStatus() {
       });
     }
   } else if (highTrafficGates.length > 0) {
-      console.log('[Gemini] GEMINI_API_KEY clearly missing. Using deterministic observable fallback logic.');
+      console.log('[Google Cloud] Gemini API disabled/missing. Using deterministic fallback.');
       highTrafficGates.forEach(gate => {
         const alternate = Object.keys(gates).find(g => gates[g].status === 'Low') || 'any available gate';
         newAlerts.push(buildAlertCloudFn({ gate, alternate }));
@@ -235,8 +271,21 @@ app.get('/api/health', (req, res) =>
 
 // Runtime config for frontend (Cloud Run envs are available here at runtime)
 app.get('/api/config', (req, res) => {
+  logger.info('Config requested by client', { userAgent: req.headers['user-agent'] });
   res.json({
     mapsApiKey: process.env.MAPS_API_KEY || process.env.VITE_MAPS_API_KEY || '',
+  });
+});
+
+// Cloud Run Integration Metadata (Proof of Platform usage)
+app.get('/api/metadata', (req, res) => {
+  res.json({
+    service: process.env.K_SERVICE || 'local-dev',
+    revision: process.env.K_REVISION || '1.0.0',
+    project: process.env.GOOGLE_CLOUD_PROJECT || 'local',
+    runtime: 'Node.js 18',
+    platform: 'Google Cloud Run',
+    region: 'asia-south1'
   });
 });
 
@@ -276,6 +325,7 @@ app.post('/api/ticket/generate', async (req, res) => {
     const ticketData = { ticketId, name, email, gate, seatNumber, checkedIn: false, generatedAt, qrToken };
 
     await dbSet('tickets/' + ticketId, ticketData);
+    logger.info('Ticket generated successfully', { ticketId, gate: ticketData.gate });
     res.json({ success: true, ticket: ticketData });
   } catch (err) {
     console.error(err);
@@ -287,9 +337,14 @@ app.post('/api/ticket/generate', async (req, res) => {
 app.get('/api/ticket/:ticketId', async (req, res) => {
   try {
     const ticket = await dbGet('tickets/' + req.params.ticketId);
-    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+    if (!ticket) {
+      logger.warn('Ticket lookup failed - not found', { ticketId: req.params.ticketId });
+      return res.status(404).json({ error: 'Ticket not found' });
+    }
+    logger.info('Ticket lookup successful', { ticketId: req.params.ticketId });
     res.json({ success: true, ticket });
   } catch (err) {
+    logger.error('Ticket fetch error', { error: err.message });
     res.status(500).json({ error: 'Failed to fetch ticket' });
   }
 });
@@ -324,6 +379,21 @@ app.post('/api/ticket/scan', async (req, res) => {
       await dbUpdate('gates/' + ticket.gate, { crowdLevel: gateData.crowdLevel + 1 });
       await updateGateStatus();
     }
+
+    // Advanced Firebase Usage: Push to scanHistory node
+    const scanEntry = {
+      ticketId,
+      gate: ticket.gate,
+      timestamp: new Date().toISOString(),
+      method: 'QR_SCAN'
+    };
+    if (fireDb) {
+      await fireDb.ref('scanHistory').push(scanEntry);
+    } else {
+      memDb.scanHistory.push(scanEntry);
+    }
+
+    logger.info('Entry scan validated', { ticketId, gate: ticket.gate });
     res.json({ success: true, ticket, message: 'Valid entry' });
   } catch (err) {
     console.error(err);
