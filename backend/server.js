@@ -382,7 +382,7 @@ app.get(/.*/, (req, res) => {
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`[EventPulse] Server listening on port ${PORT}`);
-    console.log(`[EventPulse] Database: ${fireDb ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
+    console.log(`[EventPulse] Database: ${db.isFirebase ? 'Firebase Realtime DB' : 'In-memory (demo mode)'}`);
   });
 }
 
